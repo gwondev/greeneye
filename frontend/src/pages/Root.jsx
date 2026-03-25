@@ -4,10 +4,10 @@ import CameraAltRoundedIcon from "@mui/icons-material/CameraAltRounded";
 import RecyclingRoundedIcon from "@mui/icons-material/RecyclingRounded";
 import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import GoogleIcon from "@mui/icons-material/Google";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { loginWithGoogleCredential, saveAuth, getUser } from "../services/auth";
+import { GoogleLogin } from "@react-oauth/google";
 
 const floatSlow = keyframes`
   0% { transform: translate3d(0, 0, 0); }
@@ -50,11 +50,6 @@ const featureItems = [
   },
 ];
 
-// React StrictMode(개발 모드)로 인해 컴포넌트가 리마운트될 수 있어서,
-// initialize/prompt 가드 상태는 컴포넌트 내부 ref가 아니라 모듈 스코프에서 유지합니다.
-let googleInitialized = false;
-let promptLocked = false;
-
 const Root = () => {
   const navigate = useNavigate();
   const user = getUser();
@@ -64,57 +59,30 @@ const Root = () => {
     navigateRef.current = navigate;
   }, [navigate]);
 
-  const handleGoogleLogin = async () => {
-    if (promptLocked) return; // 중복 클릭/중복 prompt 방지
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      const credential = credentialResponse?.credential;
+      if (!credential) throw new Error("Google credential is missing");
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      const loginResponse = await loginWithGoogleCredential(credential);
+      if (!loginResponse?.user?.oauthId) {
+        throw new Error("로그인 응답이 올바르지 않습니다.");
+      }
 
-    if (!window.google || !clientId) {
-      alert("구글 로그인 설정이 아직 준비되지 않았습니다.");
-      return;
+      saveAuth(loginResponse);
+      if (loginResponse?.isNewUser) {
+        navigateRef.current("/nickname");
+      } else {
+        navigateRef.current("/map");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("로그인 처리 중 오류가 발생했습니다.");
     }
+  };
 
-    // initialize()는 1회만 수행 (중복 초기화 방지 -> FedCM AbortError 감소)
-    if (!googleInitialized) {
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (response) => {
-          promptLocked = false; // 콜백 진입 시점에 다시 열어둠
-          try {
-            const credential = response?.credential;
-            if (!credential) {
-              alert("구글 로그인 토큰을 받지 못했습니다.");
-              return;
-            }
-
-            const loginResponse = await loginWithGoogleCredential(credential);
-            if (!loginResponse?.user?.oauthId) {
-              throw new Error("로그인 응답이 올바르지 않습니다.");
-            }
-
-            saveAuth(loginResponse);
-            if (loginResponse?.isNewUser) {
-              navigateRef.current("/nickname");
-            } else {
-              navigateRef.current("/map");
-            }
-          } catch (error) {
-            console.error(error);
-            alert("로그인 처리 중 오류가 발생했습니다.");
-          }
-        },
-      });
-
-      googleInitialized = true;
-    }
-
-    promptLocked = true;
-    // 사용자가 FedCM 창을 닫거나 콜백이 안 오면 영구 락 방지
-    setTimeout(() => {
-      promptLocked = false;
-    }, 10000);
-
-    window.google.accounts.id.prompt();
+  const handleGoogleError = () => {
+    alert("구글 로그인에 실패했습니다.");
   };
 
   return (
@@ -291,37 +259,20 @@ const Root = () => {
           </Box>
 
           {!user ? (
-            <Button
-              onClick={handleGoogleLogin}
-              startIcon={<GoogleIcon />}
-              sx={{
-                mt: 1,
-                minWidth: { xs: 220, sm: 250 },
-                height: 54,
-                px: 3.5,
-                borderRadius: 999,
-                color: "#fff",
-                textTransform: "none",
-                fontWeight: 800,
-                fontSize: "1rem",
-                border: "1px solid rgba(255,255,255,0.14)",
-                background:
-                  "linear-gradient(90deg, rgba(0,0,0,0.94), rgba(18,18,18,0.98), rgba(0,0,0,0.94))",
-                backgroundSize: "200% 200%",
-                animation: `${shine} 8s ease infinite`,
-                "& .MuiButton-startIcon": {
-                  color: "#fff",
-                },
-                "&:hover": {
-                  background:
-                    "linear-gradient(90deg, rgba(12,12,12,1), rgba(20,20,20,1), rgba(12,12,12,1))",
-                  borderColor: "rgba(57,255,20,0.36)",
-                  boxShadow: "0 0 22px rgba(57,255,20,0.14)",
-                },
-              }}
-            >
-              로그인하기
-            </Button>
+            <Box sx={{ mt: 1 }}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                use_fedcm_for_prompt
+                use_fedcm_for_button
+                theme="filled_black"
+                size="large"
+                shape="pill"
+                text="signin_with"
+                ux_mode="popup"
+                width={260}
+              />
+            </Box>
           ) : (
             <Button
               onClick={() => navigate("/map")}
