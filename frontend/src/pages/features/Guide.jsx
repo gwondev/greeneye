@@ -25,7 +25,7 @@ const Guide = () => {
           </Stack>
           <Typography sx={{ color: "rgba(255,255,255,0.7)", lineHeight: 1.8, wordBreak: "keep-all" }}>
             단순한 정보 제공을 넘어 실천을 돕습니다. 
-            AI 분석 결과에 따라 인근 **5M 이내의 적합한 쓰레기통** 위치를 지도에 표시하며, 
+            AI 분석 결과에 따라 인근 5M 이내의 적합한 쓰레기통 위치를 지도에 표시하며, 
             배출 전 주의사항을 직관적인 UI로 전달하여 올바른 분리배출을 유도합니다.
           </Typography>
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate("/")}

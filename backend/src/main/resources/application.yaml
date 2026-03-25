@@ -1,3 +1,12 @@
 spring:
-  application:
-    name: backend
+  datasource:
+    url: jdbc:mysql://gwon-db:3306/greeneye?serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update # 엔티티 변경사항을 DB에 자동 반영 (핵심!)
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
