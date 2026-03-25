@@ -24,17 +24,42 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-	compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	runtimeOnly 'com.mysql:mysql-connector-j'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // --- [1] Spring Boot Core & Web ---
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux' // Gemini API 호출을 위한 비동기 클라이언트
+    implementation 'org.springframework.boot:spring-boot-starter-validation' // @Valid 등 유효성 검사
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // --- [2] Database & JPA ---
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'com.mysql:mysql-connector-j:+' // 항상 최신 드라이버
+
+    // --- [3] Security & Authentication (Google & JWT) ---
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'com.google.api-client:google-api-client:+' // Google Auth
+    implementation 'io.jsonwebtoken:jjwt-api:+' // JWT 인터페이스
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:+' // JWT 구현체
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:+' // JWT용 JSON 파싱
+
+    // --- [4] IoT & Messaging (MQTT) ---
+    // ESP32와 통신하기 위해 필수인 MQTT 의존성
+    implementation 'org.springframework.integration:spring-integration-mqtt:+'
+    implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:+'
+
+    // --- [5] AI & Cloud Storage (Future-Proof) ---
+    // Gemini API 호출 및 이미지 데이터 처리를 위한 설정
+    implementation 'com.google.cloud:google-cloud-vertexai:+' // 제미나이 SDK 연동 시 유리
+    // 나중에 이미지 저장을 위해 S3나 MinIO 쓸 때 필요한 클라우드 라이브러리
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:+' 
+
+    // --- [6] Utilities & Boilerplate ---
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // --- [7] Testing ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {

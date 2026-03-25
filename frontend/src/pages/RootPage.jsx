@@ -1,127 +1,320 @@
-import {
-  Box,
-  Typography,
-  Button,
-  Container,
-  Grid,
-  Paper,
-  Stack,
-} from "@mui/material";
+import { Box, Typography, Container, Stack, Button } from "@mui/material";
+import { keyframes } from "@emotion/react";
+import CameraAltRoundedIcon from "@mui/icons-material/CameraAltRounded";
+import RecyclingRoundedIcon from "@mui/icons-material/RecyclingRounded";
+import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
+import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+import GoogleIcon from "@mui/icons-material/Google";
 import { useNavigate } from "react-router-dom";
+import { loginWithGoogleCredential, saveAuth, getUser } from "../services/auth";
+
+const floatSlow = keyframes`
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+`;
+
+const glowPulse = keyframes`
+  0% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.08); }
+  100% { opacity: 0.45; transform: scale(1); }
+`;
+
+const shine = keyframes`
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+`;
+
+const featureItems = [
+  {
+    title: "쓰레기 인식",
+    icon: <CameraAltRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/recognition",
+  },
+  {
+    title: "분리배출 안내",
+    icon: <RecyclingRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/guide",
+  },
+  {
+    title: "리워드 검증 및 지급",
+    icon: <SensorsRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/reward",
+  },
+  {
+    title: "관제 기능",
+    icon: <DashboardRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/control",
+  },
+];
 
 const RootPage = () => {
   const navigate = useNavigate();
+  const user = getUser();
 
-  const menuCards = [
-    { title: "쓰레기 인식", desc: "AI 이미지 분석" },
-    { title: "분리배출 안내", desc: "배출 방법 가이드" },
-    { title: "리워드 검증", desc: "IoT 감지 기반" },
-    { title: "관제 페이지", desc: "쓰레기통 관리" },
-  ];
+  const handleGoogleLogin = async () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+    if (!window.google || !clientId) {
+      alert("구글 로그인 설정이 아직 준비되지 않았습니다.");
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        try {
+          const credential = response?.credential;
+          if (!credential) {
+            alert("구글 로그인 토큰을 받지 못했습니다.");
+            return;
+          }
+
+          const loginResponse = await loginWithGoogleCredential(credential);
+          saveAuth(loginResponse);
+          navigate("/db");
+        } catch (error) {
+          console.error(error);
+          alert("로그인 처리 중 오류가 발생했습니다.");
+        }
+      },
+    });
+
+    window.google.accounts.id.prompt();
+  };
 
   return (
     <Box
       sx={{
-        minHeight: "100vh",
-        bgcolor: "#000",
+        minHeight: "100dvh",
+        bgcolor: "#030403",
         color: "#fff",
+        position: "relative",
+        overflow: "hidden",
         display: "flex",
         alignItems: "center",
       }}
     >
-      <Container maxWidth="lg">
-        <Stack spacing={5} alignItems="center" textAlign="center">
-          {/* 팀명 */}
-          <Box>
+      <Box
+        sx={{
+          position: "absolute",
+          top: "-8%",
+          left: "-10%",
+          width: { xs: 220, md: 420 },
+          height: { xs: 220, md: 420 },
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(57,255,20,0.16) 0%, rgba(57,255,20,0.06) 35%, rgba(57,255,20,0) 72%)",
+          filter: "blur(24px)",
+          animation: `${glowPulse} 6s ease-in-out infinite`,
+          pointerEvents: "none",
+        }}
+      />
+
+      <Box
+        sx={{
+          position: "absolute",
+          right: "-12%",
+          bottom: "-10%",
+          width: { xs: 260, md: 460 },
+          height: { xs: 260, md: 460 },
+          borderRadius: "50%",
+          background:
+            "radial-gradient(circle, rgba(0,255,140,0.14) 0%, rgba(0,255,140,0.05) 34%, rgba(0,255,140,0) 72%)",
+          filter: "blur(30px)",
+          animation: `${glowPulse} 7.5s ease-in-out infinite`,
+          pointerEvents: "none",
+        }}
+      />
+
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: { xs: "28px 28px", md: "40px 40px" },
+          maskImage:
+            "radial-gradient(circle at center, rgba(0,0,0,1) 45%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.1) 100%)",
+          opacity: 0.12,
+          pointerEvents: "none",
+        }}
+      />
+
+      <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1 }}>
+        <Stack
+          spacing={{ xs: 4, md: 5 }}
+          alignItems="center"
+          textAlign="center"
+          sx={{ py: { xs: 6, md: 8 } }}
+        >
+          <Stack spacing={2} alignItems="center">
             <Typography
-              variant="h2"
               sx={{
-                fontWeight: 800,
-                letterSpacing: "-0.04em",
-                mb: 1,
+                fontSize: { xs: "2.7rem", sm: "4.3rem", md: "6rem" },
+                fontWeight: 900,
+                lineHeight: 0.95,
+                letterSpacing: "0.14em",
+                color: "#ffffff",
+                textTransform: "uppercase",
+                textShadow:
+                  "0 0 10px rgba(57,255,20,0.10), 0 0 30px rgba(57,255,20,0.10)",
+                animation: `${floatSlow} 6s ease-in-out infinite`,
               }}
             >
-              GreenEYE
+              GREENEYE
             </Typography>
 
-            {/* 주제명 */}
             <Typography
-              variant="h6"
               sx={{
-                color: "#bdbdbd",
+                fontSize: { xs: "0.98rem", sm: "1.15rem", md: "1.3rem" },
+                color: "rgba(255,255,255,0.74)",
                 fontWeight: 400,
+                letterSpacing: "-0.01em",
+                maxWidth: 820,
+                lineHeight: 1.7,
               }}
             >
-              AI 기반 쓰레기 인식 및 분리배출 안내 플랫폼
+              AIoT 기반 리워드형 분리배출 안내 시스템
             </Typography>
+          </Stack>
+
+          <Box
+            sx={{
+              width: "100%",
+              maxWidth: 620,
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: { xs: 1.2, sm: 1.6 },
+            }}
+          >
+            {featureItems.map((item) => (
+              <Button
+                key={item.title}
+                fullWidth
+                onClick={() => navigate(item.path)}
+                sx={{
+                  minHeight: { xs: 92, sm: 102, md: 110 },
+                  px: { xs: 1.2, sm: 1.8 },
+                  py: 1.8,
+                  borderRadius: 3,
+                  color: "#fff",
+                  justifyContent: "flex-start",
+                  textTransform: "none",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background:
+                    "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))",
+                  backdropFilter: "blur(8px)",
+                  transition: "all 0.25s ease",
+                  "&:hover": {
+                    borderColor: "rgba(57,255,20,0.36)",
+                    boxShadow: "0 0 24px rgba(57,255,20,0.12)",
+                    transform: "translateY(-4px)",
+                    background:
+                      "linear-gradient(135deg, rgba(57,255,20,0.08), rgba(255,255,255,0.03))",
+                  },
+                }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={{ xs: 1, sm: 1.4 }}
+                  alignItems="center"
+                  sx={{ textAlign: "left" }}
+                >
+                  <Box
+                    sx={{
+                      width: { xs: 38, sm: 44 },
+                      height: { xs: 38, sm: 44 },
+                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#7CFF72",
+                      background: "rgba(57,255,20,0.08)",
+                      border: "1px solid rgba(57,255,20,0.14)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </Box>
+
+                  <Typography
+                    sx={{
+                      fontSize: { xs: "0.76rem", sm: "0.95rem", md: "1rem" },
+                      fontWeight: 700,
+                      color: "#fff",
+                      lineHeight: 1.3,
+                      wordBreak: "keep-all",
+                    }}
+                  >
+                    {item.title}
+                  </Typography>
+                </Stack>
+              </Button>
+            ))}
           </Box>
 
-          {/* 메뉴 카드 */}
-          <Grid container spacing={2} justifyContent="center">
-            {menuCards.map((card) => (
-              <Grid item xs={12} sm={6} md={3} key={card.title}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    bgcolor: "#111",
-                    color: "#fff",
-                    border: "1px solid #2a2a2a",
-                    borderRadius: 3,
-                    p: 3,
-                    textAlign: "left",
-                    minHeight: 140,
-                  }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                    {card.title}
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "#cfcfcf" }}>
-                    {card.desc}
-                  </Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* 버튼 */}
-          <Stack direction="row" spacing={2}>
+          {!user ? (
             <Button
-              variant="contained"
-              onClick={() => navigate("/signup")}
+              onClick={handleGoogleLogin}
+              startIcon={<GoogleIcon />}
               sx={{
-                bgcolor: "#fff",
-                color: "#000",
-                fontWeight: 700,
-                px: 4,
-                py: 1.2,
-                borderRadius: 2,
-                "&:hover": {
-                  bgcolor: "#ddd",
-                },
-              }}
-            >
-              회원가입
-            </Button>
-
-            <Button
-              variant="outlined"
-              onClick={() => navigate("/login")}
-              sx={{
+                mt: 1,
+                minWidth: { xs: 220, sm: 250 },
+                height: 54,
+                px: 3.5,
+                borderRadius: 999,
                 color: "#fff",
-                borderColor: "#444",
-                fontWeight: 700,
-                px: 4,
-                py: 1.2,
-                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 800,
+                fontSize: "1rem",
+                border: "1px solid rgba(255,255,255,0.14)",
+                background:
+                  "linear-gradient(90deg, rgba(0,0,0,0.94), rgba(18,18,18,0.98), rgba(0,0,0,0.94))",
+                backgroundSize: "200% 200%",
+                animation: `${shine} 8s ease infinite`,
+                "& .MuiButton-startIcon": {
+                  color: "#fff",
+                },
                 "&:hover": {
-                  borderColor: "#fff",
-                  bgcolor: "rgba(255,255,255,0.04)",
+                  background:
+                    "linear-gradient(90deg, rgba(12,12,12,1), rgba(20,20,20,1), rgba(12,12,12,1))",
+                  borderColor: "rgba(57,255,20,0.36)",
+                  boxShadow: "0 0 22px rgba(57,255,20,0.14)",
                 },
               }}
             >
-              로그인
+              로그인하기
             </Button>
-          </Stack>
+          ) : (
+            <Button
+              onClick={() => navigate("/db")}
+              sx={{
+                mt: 1,
+                minWidth: { xs: 220, sm: 250 },
+                height: 54,
+                px: 3.5,
+                borderRadius: 999,
+                color: "#fff",
+                textTransform: "none",
+                fontWeight: 800,
+                fontSize: "1rem",
+                border: "1px solid rgba(57,255,20,0.26)",
+                background:
+                  "linear-gradient(90deg, rgba(9,20,9,0.96), rgba(10,16,10,0.98), rgba(9,20,9,0.96))",
+                "&:hover": {
+                  boxShadow: "0 0 24px rgba(57,255,20,0.16)",
+                  background:
+                    "linear-gradient(90deg, rgba(10,28,10,1), rgba(10,18,10,1), rgba(10,28,10,1))",
+                },
+              }}
+            >
+              서비스 시작
+            </Button>
+          )}
         </Stack>
       </Container>
     </Box>
