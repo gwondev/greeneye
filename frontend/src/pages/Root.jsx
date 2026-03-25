@@ -65,11 +65,22 @@ const Root = () => {
       if (!credential) throw new Error("Google credential is missing");
 
       const loginResponse = await loginWithGoogleCredential(credential);
-      if (!loginResponse?.user?.oauthId) {
-        throw new Error("로그인 응답이 올바르지 않습니다.");
-      }
+      console.log("google loginResponse:", loginResponse);
 
-      saveAuth(loginResponse);
+      const user = loginResponse?.user;
+      const oauthId = user?.oauthId ?? user?.oauth_id;
+      if (!oauthId) throw new Error("로그인 응답의 oauthId가 없습니다.");
+
+      // 백엔드 직렬화/필드명에 따라 oauthId 키가 달라질 수 있어 정규화
+      const normalizedLoginResponse = {
+        ...loginResponse,
+        user: {
+          ...user,
+          oauthId,
+        },
+      };
+
+      saveAuth(normalizedLoginResponse);
       if (loginResponse?.isNewUser) {
         navigateRef.current("/nickname");
       } else {
