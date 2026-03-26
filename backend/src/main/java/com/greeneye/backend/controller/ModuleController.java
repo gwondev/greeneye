@@ -33,6 +33,29 @@ public class ModuleController {
         return moduleRepository.findAll();
     }
 
+    @PostMapping
+    public Module createModule(@RequestBody Map<String, Object> body) {
+        String serialNumber = body.get("serialNumber") == null ? null : body.get("serialNumber").toString().trim();
+        if (serialNumber == null || serialNumber.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "serialNumber is required");
+        }
+        if (moduleRepository.findBySerialNumber(serialNumber).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "serialNumber already exists");
+        }
+
+        Module module = Module.builder()
+                .serialNumber(serialNumber)
+                .organization(stringOrDefault(body.get("organization"), "CHOSUN_IT"))
+                .lat(doubleOrDefault(body.get("lat"), 35.1469))
+                .lon(doubleOrDefault(body.get("lon"), 126.9228))
+                .type(stringOrDefault(body.get("type"), "GENERAL"))
+                .status("DEFAULT")
+                .totalDisposalCount(0)
+                .lastHeartbeat(LocalDateTime.now())
+                .build();
+        return moduleRepository.save(module);
+    }
+
     @PostMapping("/seed")
     public Map<String, Object> seedModules() {
         if (moduleRepository.count() > 0) {
@@ -145,5 +168,20 @@ public class ModuleController {
                 "nowRewards", user.getNowRewards(),
                 "totalRewards", user.getTotalRewards()
         );
+    }
+
+    private String stringOrDefault(Object raw, String fallback) {
+        if (raw == null) return fallback;
+        String value = raw.toString().trim();
+        return value.isBlank() ? fallback : value;
+    }
+
+    private Double doubleOrDefault(Object raw, double fallback) {
+        if (raw == null) return fallback;
+        try {
+            return Double.parseDouble(raw.toString());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
     }
 }

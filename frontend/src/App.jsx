@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Root from "./pages/Root";
-import DB from "./pages/DB";
+import Manage from "./pages/Manage";
 import Nickname from "./pages/Nickname";
 import Map from "./pages/Map";
 import Camera from "./pages/Camera";
@@ -24,7 +24,8 @@ function App() {
         <Route path="/input" element={<Input />} />
 
         {/* 관리자 전용 페이지 */}
-        <Route path="/db" element={<DB />} />
+        <Route path="/db" element={<Manage />} />
+        <Route path="/manage" element={<Manage />} />
 
         {/* 개별 기능 페이지 */}
         <Route path="/features/recognition" element={<Recognition />} />

@@ -74,6 +74,15 @@ const Map = () => {
             backgroundColor: "rgba(124,255,114,0.08)",
           }}
         />
+        {user?.role === "ADMIN" && (
+          <Button
+            size="small"
+            onClick={() => navigate("/manage")}
+            sx={{ color: "#7CFF72", border: "1px solid rgba(124,255,114,0.4)" }}
+          >
+            Manage
+          </Button>
+        )}
       </Stack>
 
       <Paper
