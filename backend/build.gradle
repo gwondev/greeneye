@@ -46,11 +46,9 @@ dependencies {
     implementation 'org.springframework.integration:spring-integration-mqtt:+'
     implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:+'
 
-    // --- [5] AI & Cloud Storage (Future-Proof) ---
+    // --- [5] AI ---
     // Gemini API 호출 및 이미지 데이터 처리를 위한 설정
     implementation 'com.google.cloud:google-cloud-vertexai:+' // 제미나이 SDK 연동 시 유리
-    // 나중에 이미지 저장을 위해 S3나 MinIO 쓸 때 필요한 클라우드 라이브러리
-    implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:+' 
 
     // --- [6] Utilities & Boilerplate ---
     compileOnly 'org.projectlombok:lombok'

@@ -1,4 +1,7 @@
 spring:
+  autoconfigure:
+    exclude:
+      - io.awspring.cloud.autoconfigure.s3.S3AutoConfiguration
   datasource:
     url: jdbc:mysql://gwon-db:3306/greeneye?serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useSSL=false&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}
