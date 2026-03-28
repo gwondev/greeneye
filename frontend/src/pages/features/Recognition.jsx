@@ -21,7 +21,7 @@ const Recognition = () => {
           </Box>
           <Stack spacing={1}>
             <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: "-0.02em" }}>AI 쓰레기 인식</Typography>
-            <Typography sx={{ color: "#7CFF72", fontWeight: 600 }}>Gemini 1.5 Flash API</Typography>
+            <Typography sx={{ color: "#7CFF72", fontWeight: 600 }}>Gemini Flash API</Typography>
           </Stack>
           <Typography sx={{ color: "rgba(255,255,255,0.7)", lineHeight: 1.8, wordBreak: "keep-all" }}>
             사용자가 촬영한 이미지를 실시간으로 분석합니다. 

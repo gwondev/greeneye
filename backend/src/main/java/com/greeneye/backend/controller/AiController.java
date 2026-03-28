@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
@@ -29,6 +30,9 @@ public class AiController {
 
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
+
+    @Value("${gemini.api.model:gemini-2.5-flash}")
+    private String geminiModel;
 
     private static final String VISION_PROMPT = """
             대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하라.
@@ -78,17 +82,36 @@ public class AiController {
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(content));
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key="
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
+                + geminiModel
+                + ":generateContent?key="
                 + geminiApiKey;
 
-        String raw = webClientBuilder.build()
-                .post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(reqBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
+        String raw;
+        try {
+            raw = webClientBuilder.build()
+                    .post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(reqBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(120));
+        } catch (WebClientResponseException e) {
+            String body = e.getResponseBodyAsString();
+            if (body != null && body.length() > 800) {
+                body = body.substring(0, 800) + "…";
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Gemini API 오류 HTTP " + e.getStatusCode().value() + ": " + (body != null && !body.isBlank() ? body : e.getMessage())
+            );
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Gemini 호출 실패: " + e.getMessage()
+            );
+        }
 
         if (raw == null || raw.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답이 비어 있습니다.");
@@ -107,7 +130,7 @@ public class AiController {
         result.put("predictedType", predicted);
         result.put("userSelectedType", normalizedUserPick);
         result.put("finalType", finalType);
-        result.put("model", "gemini-1.5-flash");
+        result.put("model", geminiModel);
         result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
         result.put("cameraDailyCount", user.getCameraDailyCount());
         result.put("remainingToday", 10 - user.getCameraDailyCount());
