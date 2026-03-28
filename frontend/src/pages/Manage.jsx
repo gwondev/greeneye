@@ -105,9 +105,14 @@ const Manage = () => {
           <Typography variant="h4" sx={{ fontWeight: 900 }}>
             Manage (ADMIN)
           </Typography>
-          <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)" }} onClick={() => navigate("/map")}>
-            Map으로
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)" }} onClick={() => navigate("/db")}>
+              DB 조회
+            </Button>
+            <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)" }} onClick={() => navigate("/map")}>
+              Map으로
+            </Button>
+          </Stack>
         </Stack>
 
         <Stack spacing={1.2} sx={{ mb: 2 }}>
@@ -143,36 +148,57 @@ const Manage = () => {
           <Typography>Reward Histories: {overview.rewardHistories.length}</Typography>
         </Paper>
 
-        <Paper sx={{ p: 2, mb: 2, bgcolor: "rgba(255,255,255,0.04)", overflowX: "auto" }}>
-          <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 1 }}>유저 목록</Typography>
+        <Paper sx={{ p: 2, mb: 2, bgcolor: "rgba(255,255,255,0.04)", overflowX: "auto", border: "1px solid rgba(124,255,114,0.18)" }}>
+          <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 1.5 }}>유저 목록</Typography>
           <Table size="small">
             <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell><TableCell>닉네임</TableCell><TableCell>ROLE</TableCell><TableCell>상태</TableCell><TableCell>NOW</TableCell><TableCell>TOTAL</TableCell>
+              <TableRow sx={{ bgcolor: "rgba(124,255,114,0.08)" }}>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>ID</TableCell>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>닉네임</TableCell>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>ROLE</TableCell>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>상태</TableCell>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>NOW</TableCell>
+                <TableCell sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>TOTAL</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {overview.users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell>{u.id}</TableCell><TableCell>{u.nickname || "-"}</TableCell><TableCell>{u.role}</TableCell><TableCell>{u.status}</TableCell><TableCell>{u.nowRewards ?? 0}</TableCell><TableCell>{u.totalRewards ?? 0}</TableCell>
+                <TableRow key={u.id} sx={{ "&:nth-of-type(odd)": { bgcolor: "rgba(255,255,255,0.03)" } }}>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.id}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.nickname || "-"}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.role}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.status}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.nowRewards ?? 0}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{u.totalRewards ?? 0}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </Paper>
 
-        <Paper sx={{ p: 2, mb: 2, bgcolor: "rgba(255,255,255,0.04)", overflowX: "auto" }}>
-          <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 1 }}>모듈 목록</Typography>
+        <Paper sx={{ p: 2, mb: 2, bgcolor: "rgba(255,255,255,0.04)", overflowX: "auto", border: "1px solid rgba(124,255,114,0.18)" }}>
+          <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 1.5 }}>모듈 목록</Typography>
           <Table size="small">
             <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell><TableCell>SERIAL</TableCell><TableCell>ORG</TableCell><TableCell>TYPE</TableCell><TableCell>STATUS</TableCell><TableCell>LAT</TableCell><TableCell>LON</TableCell><TableCell>COUNT</TableCell>
+              <TableRow sx={{ bgcolor: "rgba(124,255,114,0.08)" }}>
+                {["ID", "SERIAL", "ORG", "TYPE", "STATUS", "LAT", "LON", "COUNT"].map((h) => (
+                  <TableCell key={h} sx={{ color: "#7CFF72", fontWeight: 800, borderColor: "rgba(124,255,114,0.2)" }}>
+                    {h}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
               {overview.modules.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>{m.id}</TableCell><TableCell>{m.serialNumber}</TableCell><TableCell>{m.organization}</TableCell><TableCell>{m.type}</TableCell><TableCell>{m.status}</TableCell><TableCell>{m.lat}</TableCell><TableCell>{m.lon}</TableCell><TableCell>{m.totalDisposalCount}</TableCell>
+                <TableRow key={m.id} sx={{ "&:nth-of-type(odd)": { bgcolor: "rgba(255,255,255,0.03)" } }}>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.id}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.serialNumber}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.organization}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.type}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.status}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.lat}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.lon}</TableCell>
+                  <TableCell sx={{ color: "rgba(255,255,255,0.92)", borderColor: "rgba(255,255,255,0.08)" }}>{m.totalDisposalCount}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

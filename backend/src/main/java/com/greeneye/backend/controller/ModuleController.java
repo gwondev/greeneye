@@ -62,18 +62,31 @@ public class ModuleController {
             return Map.of("seeded", false, "reason", "already exists");
         }
 
-        Module sample = Module.builder()
-                .serialNumber("GE-MODULE-001")
+        Module demo = Module.builder()
+                .serialNumber("GE-DEMO-CHOSUN")
                 .organization("CHOSUN_IT")
-                .lat(35.1469)
-                .lon(126.9228)
+                .lat(35.1462000)
+                .lon(126.9229000)
                 .type("CAN")
                 .status("DEFAULT")
                 .totalDisposalCount(0)
                 .lastHeartbeat(LocalDateTime.now())
                 .build();
-        moduleRepository.save(sample);
-        return Map.of("seeded", true, "serialNumber", sample.getSerialNumber());
+        moduleRepository.save(demo);
+
+        Module second = Module.builder()
+                .serialNumber("GE-MODULE-001")
+                .organization("CHOSUN_IT")
+                .lat(35.1474000)
+                .lon(126.9242000)
+                .type("PET")
+                .status("DEFAULT")
+                .totalDisposalCount(0)
+                .lastHeartbeat(LocalDateTime.now())
+                .build();
+        moduleRepository.save(second);
+
+        return Map.of("seeded", true, "serialNumbers", List.of(demo.getSerialNumber(), second.getSerialNumber()));
     }
 
     @PostMapping("/{serialNumber}/ready")

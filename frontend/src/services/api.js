@@ -26,3 +26,26 @@ export async function apiFetch(path, options = {}) {
 
   return response.text();
 }
+
+/** multipart/form-data (이미지 업로드 등). Content-Type은 브라우저가 boundary 포함해 설정 */
+export async function apiFetchMultipart(path, formData) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `서버 에러: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("text/html")) {
+    throw new Error("API가 백엔드 대신 프론트(index.html)로 라우팅되었습니다.");
+  }
+  if (contentType && contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return response.text();
+}

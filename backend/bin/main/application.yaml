@@ -2,6 +2,10 @@ spring:
   autoconfigure:
     exclude:
       - io.awspring.cloud.autoconfigure.s3.S3AutoConfiguration
+  servlet:
+    multipart:
+      max-file-size: 12MB
+      max-request-size: 14MB
   datasource:
     url: jdbc:mysql://gwon-db:3306/greeneye?serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useSSL=false&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}
@@ -25,3 +29,9 @@ gemini:
 mqtt:
   broker-url: ${MQTT_BROKER_URL:tcp://gwon-mosquitto:1883}
   client-id: ${MQTT_CLIENT_ID:greeneye-backend}
+
+# 로컬에서만 true (IDE 환경변수 GREENEYE_DEV_USER_ENABLED=true). 배포 Docker에서는 false 유지.
+greeneye:
+  dev-user:
+    enabled: ${GREENEYE_DEV_USER_ENABLED:false}
+    oauth-id: ${GREENEYE_DEV_USER_OAUTH_ID:dev-local-greeneye}

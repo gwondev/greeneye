@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
 import Root from "./pages/Root";
 import Manage from "./pages/Manage";
+import DB from "./pages/DB";
 import Nickname from "./pages/Nickname";
 import Map from "./pages/Map";
 import Camera from "./pages/Camera";
@@ -39,7 +40,7 @@ function App() {
           <Route path="/input" element={<Input />} />
 
           {/* 관리자 전용 페이지 */}
-          <Route path="/db" element={<Manage />} />
+          <Route path="/db" element={<DB />} />
           <Route path="/manage" element={<Manage />} />
 
           {/* 개별 기능 페이지 */}

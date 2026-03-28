@@ -9,6 +9,10 @@
 #
 # 기본 경로: <greeneye 상위 디렉터리>/.env.production
 # 예: /root/.env.production + /root/greeneye
+#
+# 로컬 백엔드에서 dev 전용 유저(dev-local-greeneye)를 DB에 넣으려면 실행 전에:
+#   export GREENEYE_DEV_USER_ENABLED=true
+# (배포 Docker에서는 설정하지 말 것. application.yaml 기본값 false)
 
 set -euo pipefail
 
