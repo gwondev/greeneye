@@ -6,7 +6,14 @@ import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
-import { loginWithGoogleCredential, saveAuth, getUser } from "../services/auth";
+import {
+  loginWithGoogleCredential,
+  saveAuth,
+  getUser,
+  isDevBypass,
+  saveUser,
+  DEV_OAUTH_ID,
+} from "../services/auth";
 import { GoogleLogin } from "@react-oauth/google";
 
 const floatSlow = keyframes`
@@ -71,6 +78,16 @@ const Root = () => {
   useEffect(() => {
     navigateRef.current = navigate;
   }, [navigate]);
+
+  const handleLocalDevLogin = () => {
+    saveUser({
+      oauthId: DEV_OAUTH_ID,
+      nickname: "gwon",
+      role: "ADMIN",
+      status: "ACTIVE",
+    });
+    navigate("/map");
+  };
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
@@ -283,96 +300,169 @@ const Root = () => {
           </Box>
 
           {!user ? (
-            <Box
-              sx={{
-                mt: 1,
-                position: "relative",
-                width: "100%",
-                maxWidth: 200,
-                height: 48,
-                mx: "auto",
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "linear-gradient(180deg, rgba(22,22,22,0.98) 0%, rgba(8,8,8,0.99) 100%)",
-                boxShadow: "0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
-                overflow: "hidden",
-                cursor: "pointer",
-                transition: "all 0.25s ease",
-                "&:hover": {
-                  borderColor: "rgba(57,255,20,0.4)",
-                  boxShadow: "0 0 24px rgba(57,255,20,0.14), 0 8px 28px rgba(0,0,0,0.55)",
-                  transform: "translateY(-3px)",
-                  background:
-                    "linear-gradient(180deg, rgba(28,36,28,0.98) 0%, rgba(10,14,10,0.99) 100%)",
-                },
-              }}
-            >
-              <Stack
-                direction="row"
-                alignItems="center"
-                justifyContent="center"
-                spacing={1.15}
+            isDevBypass() ? (
+              <Box
+                component="button"
+                type="button"
+                onClick={handleLocalDevLogin}
                 sx={{
-                  height: "100%",
-                  px: 1.75,
-                  pointerEvents: "none",
+                  mt: 1,
                   position: "relative",
-                  zIndex: 0,
+                  width: "100%",
+                  maxWidth: 200,
+                  height: 48,
+                  mx: "auto",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background:
+                    "linear-gradient(180deg, rgba(22,22,22,0.98) 0%, rgba(8,8,8,0.99) 100%)",
+                  boxShadow: "0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  transition: "all 0.25s ease",
+                  font: "inherit",
+                  color: "inherit",
+                  "&:hover": {
+                    borderColor: "rgba(57,255,20,0.4)",
+                    boxShadow: "0 0 24px rgba(57,255,20,0.14), 0 8px 28px rgba(0,0,0,0.55)",
+                    transform: "translateY(-3px)",
+                    background:
+                      "linear-gradient(180deg, rgba(28,36,28,0.98) 0%, rgba(10,14,10,0.99) 100%)",
+                  },
                 }}
               >
-                <Box
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="center"
+                  spacing={1.15}
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    bgcolor: "rgba(124,255,114,0.08)",
-                    border: "1px solid rgba(124,255,114,0.35)",
-                    boxShadow: "0 0 14px rgba(124,255,114,0.12)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    height: "100%",
+                    px: 1.75,
+                    position: "relative",
+                    zIndex: 0,
                   }}
                 >
-                  <GoogleMark size={17} />
-                </Box>
-                <Typography
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: "0.95rem",
-                    color: "#fff",
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  로그인
-                </Typography>
-              </Stack>
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      bgcolor: "rgba(124,255,114,0.08)",
+                      border: "1px solid rgba(124,255,114,0.35)",
+                      boxShadow: "0 0 14px rgba(124,255,114,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <GoogleMark size={17} />
+                  </Box>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: "0.95rem",
+                      color: "#fff",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    로그인
+                  </Typography>
+                </Stack>
+              </Box>
+            ) : (
               <Box
                 sx={{
-                  position: "absolute",
-                  inset: 0,
-                  zIndex: 1,
-                  opacity: 0,
-                  display: "flex",
-                  alignItems: "stretch",
-                  justifyContent: "stretch",
-                  "& > *": { flex: 1, minWidth: "100% !important", width: "100% !important" },
-                  "& iframe": { width: "100% !important", minHeight: "48px !important" },
+                  mt: 1,
+                  position: "relative",
+                  width: "100%",
+                  maxWidth: 200,
+                  height: 48,
+                  mx: "auto",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  background:
+                    "linear-gradient(180deg, rgba(22,22,22,0.98) 0%, rgba(8,8,8,0.99) 100%)",
+                  boxShadow: "0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  transition: "all 0.25s ease",
+                  "&:hover": {
+                    borderColor: "rgba(57,255,20,0.4)",
+                    boxShadow: "0 0 24px rgba(57,255,20,0.14), 0 8px 28px rgba(0,0,0,0.55)",
+                    transform: "translateY(-3px)",
+                    background:
+                      "linear-gradient(180deg, rgba(28,36,28,0.98) 0%, rgba(10,14,10,0.99) 100%)",
+                  },
                 }}
               >
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={handleGoogleError}
-                  use_fedcm_for_prompt
-                  use_fedcm_for_button
-                  theme="filled_black"
-                  size="large"
-                  shape="rectangular"
-                  text="signin_with"
-                  ux_mode="popup"
-                  width={200}
-                />
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="center"
+                  spacing={1.15}
+                  sx={{
+                    height: "100%",
+                    px: 1.75,
+                    pointerEvents: "none",
+                    position: "relative",
+                    zIndex: 0,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      bgcolor: "rgba(124,255,114,0.08)",
+                      border: "1px solid rgba(124,255,114,0.35)",
+                      boxShadow: "0 0 14px rgba(124,255,114,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <GoogleMark size={17} />
+                  </Box>
+                  <Typography
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: "0.95rem",
+                      color: "#fff",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    로그인
+                  </Typography>
+                </Stack>
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 1,
+                    opacity: 0,
+                    display: "flex",
+                    alignItems: "stretch",
+                    justifyContent: "stretch",
+                    "& > *": { flex: 1, minWidth: "100% !important", width: "100% !important" },
+                    "& iframe": { width: "100% !important", minHeight: "48px !important" },
+                  }}
+                >
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={handleGoogleError}
+                    use_fedcm_for_prompt
+                    use_fedcm_for_button
+                    theme="filled_black"
+                    size="large"
+                    shape="rectangular"
+                    text="signin_with"
+                    ux_mode="popup"
+                    width={200}
+                  />
+                </Box>
               </Box>
-            </Box>
+            )
           ) : (
             <Button
               onClick={() => navigate("/map")}

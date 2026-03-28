@@ -1,0 +1,17 @@
+# IDE에서 로컬만 돌릴 때: MySQL 없이 H2 인메모리 + dev 유저 시드
+#   --spring.profiles.active=local
+# 또는 환경변수 SPRING_PROFILES_ACTIVE=local
+spring:
+  datasource:
+    url: jdbc:h2:mem:greeneye;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+
+greeneye:
+  dev-user:
+    enabled: true

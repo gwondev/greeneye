@@ -45,20 +45,29 @@ export function isDevBypass() {
 /** 백엔드 `DevUserBootstrap` / `greeneye.dev-user.oauth-id` 와 동일해야 함 */
 export const DEV_OAUTH_ID = "dev-local-greeneye";
 
-/** 로그인 사용자 oauthId, 로컬 dev 에서는 고정 dev id (DB에 시드 필요) */
-export function getEffectiveOauthId() {
+/** 로컬 Vite dev: 저장된 사용자 없이도 Map 등에서 gwon / ADMIN 으로 취급 */
+export function getEffectiveUser() {
   const u = getUser();
-  if (u?.oauthId) return u.oauthId;
-  if (isDevBypass()) return DEV_OAUTH_ID;
+  if (u?.oauthId) return u;
+  if (isDevBypass()) {
+    return {
+      oauthId: DEV_OAUTH_ID,
+      nickname: "gwon",
+      role: "ADMIN",
+      status: "ACTIVE",
+    };
+  }
   return null;
 }
 
-/** READY 등 닉네임 조회용 — 시드된 로컬 dev 유저 닉네임과 맞춤 */
+/** 로그인 사용자 oauthId */
+export function getEffectiveOauthId() {
+  return getEffectiveUser()?.oauthId ?? null;
+}
+
+/** READY 등 닉네임 조회용 */
 export function getEffectiveNickname() {
-  const u = getUser();
-  if (u?.nickname) return u.nickname;
-  if (isDevBypass()) return "gwon";
-  return null;
+  return getEffectiveUser()?.nickname ?? null;
 }
 
 export function clearAuth() {

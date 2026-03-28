@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Typography, Box, Paper, Stack, Chip, Button, Alert } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { getUser, isDevBypass, getEffectiveNickname } from "../services/auth";
+import { getEffectiveUser, getEffectiveNickname } from "../services/auth";
 import { apiFetch } from "../services/api";
 import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import StorageRoundedIcon from "@mui/icons-material/StorageRounded";
@@ -14,7 +14,7 @@ const HELD_KEY = "greeneye.finalWasteType";
 
 const Map = () => {
   const navigate = useNavigate();
-  const user = getUser();
+  const user = getEffectiveUser();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ const Map = () => {
   const [heldType, setHeldType] = useState(() => sessionStorage.getItem(HELD_KEY) || "");
 
   useEffect(() => {
-    if (!user?.oauthId && !isDevBypass()) {
+    if (!user?.oauthId) {
       navigate("/");
       return;
     }
@@ -61,7 +61,7 @@ const Map = () => {
   }, []);
 
   useEffect(() => {
-    if (!user?.oauthId && !isDevBypass()) return;
+    if (!user?.oauthId) return;
 
     const run = async () => {
       try {
@@ -115,12 +115,22 @@ const Map = () => {
     }
   };
 
-  if (!user?.oauthId && !isDevBypass()) return null;
+  if (!user?.oauthId) return null;
 
-  const showAdminNav = user?.role === "ADMIN" || isDevBypass();
+  const showAdminNav = user?.role === "ADMIN";
+  const displayName = user?.nickname || getEffectiveNickname() || "사용자";
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, color: "#fff", bgcolor: "#030403", minHeight: "100vh" }}>
+    <Box
+      sx={{
+        p: { xs: 2, md: 3 },
+        color: "#fff",
+        bgcolor: "#030403",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>

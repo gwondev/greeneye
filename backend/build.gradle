@@ -33,6 +33,7 @@ dependencies {
     // --- [2] Database & JPA ---
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     runtimeOnly 'com.mysql:mysql-connector-j:+' // 항상 최신 드라이버
+    runtimeOnly 'com.h2database:h2' // 프로필 local: 인메모리 DB (IDE 단독 실행용)
 
     // --- [3] Security & Authentication (Google & JWT) ---
     implementation 'org.springframework.boot:spring-boot-starter-security'
