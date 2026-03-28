@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Env (prepare-env.sh 로 생성) ###
+.env
+.env.*
+!.env.example

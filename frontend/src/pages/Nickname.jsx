@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Box, Container, TextField, Button, Typography, Stack, InputAdornment } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { keyframes } from "@emotion/react";
 import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
-import { getUser, saveUser } from "../services/auth";
+import { getUser, saveUser, isDevBypass } from "../services/auth";
 import { apiFetch } from "../services/api";
 
 // Guide.jsx에서 가져온 등장 애니메이션
@@ -18,7 +18,19 @@ const NicknamePage = () => {
   const navigate = useNavigate();
   const user = getUser();
 
+  useEffect(() => {
+    if (!user?.oauthId && !isDevBypass()) {
+      navigate("/");
+    }
+  }, [user?.oauthId, navigate]);
+
   const handleSubmit = async () => {
+    if (!user?.oauthId) {
+      if (isDevBypass()) {
+        alert("로컬 개발: 닉네임 저장은 구글 로그인 후 가능합니다.");
+      }
+      return;
+    }
     // 닉네임 입력 안 했을 때 방어 로직 추가
     if (!nickname.trim()) {
       alert("사용하실 별명을 입력해주세요.");

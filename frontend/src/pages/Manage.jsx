@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { getUser } from "../services/auth";
+import { getUser, isDevBypass } from "../services/auth";
 import { apiFetch } from "../services/api";
 
 const Manage = () => {
@@ -42,7 +42,7 @@ const Manage = () => {
   });
 
   useEffect(() => {
-    if (currentUser?.role !== "ADMIN") {
+    if (currentUser?.role !== "ADMIN" && !isDevBypass()) {
       alert("관리자 전용 페이지입니다.");
       navigate("/map");
       return;
@@ -96,7 +96,7 @@ const Manage = () => {
     }
   };
 
-  if (currentUser?.role !== "ADMIN") return null;
+  if (currentUser?.role !== "ADMIN" && !isDevBypass()) return null;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#030403", color: "#fff", py: 4 }}>

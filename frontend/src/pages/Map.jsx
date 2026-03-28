@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Typography, Box, Paper, Stack, Chip, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { getUser } from "../services/auth";
+import { getUser, isDevBypass } from "../services/auth";
 import { apiFetch } from "../services/api";
 import PlaceRoundedIcon from "@mui/icons-material/PlaceRounded";
 import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
@@ -14,7 +14,7 @@ const Map = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user?.oauthId) {
+    if (!user?.oauthId && !isDevBypass()) {
       navigate("/");
       return;
     }
@@ -40,7 +40,7 @@ const Map = () => {
       await apiFetch(`/modules/${serialNumber}/ready`, {
         method: "POST",
         body: JSON.stringify({
-          userId: user.nickname,
+          userId: user?.nickname || "로컬",
           selectedType: "CAN",
         }),
       });
@@ -52,14 +52,14 @@ const Map = () => {
     }
   };
 
-  if (!user?.oauthId) return null;
+  if (!user?.oauthId && !isDevBypass()) return null;
 
   return (
     <Box sx={{ p: { xs: 2.5, md: 4 }, color: "#fff", bgcolor: "#030403", minHeight: "100vh" }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>
-            반가워요, <span style={{ color: "#7CFF72" }}>{user?.nickname || "사용자"}</span>님
+            반가워요, <span style={{ color: "#7CFF72" }}>{user?.nickname || (isDevBypass() ? "로컬 미리보기" : "사용자")}</span>님
           </Typography>
           <Typography sx={{ color: "rgba(255,255,255,0.72)", mt: 0.7 }}>
             주변 GREENEYE 모듈 상태를 확인하고 배출할 모듈을 선택하세요.

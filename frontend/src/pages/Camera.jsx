@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Button, Container, Stack, Typography, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { getUser } from "../services/auth";
+import { getUser, isDevBypass } from "../services/auth";
 import { apiFetch } from "../services/api";
 
 const Camera = () => {
@@ -13,8 +13,12 @@ const Camera = () => {
 
   const handleAnalyze = async () => {
     if (!user?.oauthId) {
-      alert("로그인 정보가 없습니다.");
-      navigate("/");
+      if (!isDevBypass()) {
+        alert("로그인 정보가 없습니다.");
+        navigate("/");
+      } else {
+        alert("로컬 개발: 구글 로그인 후에만 분석 API를 호출할 수 있습니다.");
+      }
       return;
     }
 

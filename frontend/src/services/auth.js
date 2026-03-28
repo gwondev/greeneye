@@ -37,6 +37,11 @@ export function getUser() {
   return raw ? JSON.parse(raw) : null;
 }
 
+/** `npm run dev`(Vite)일 때만: 로그인 강제 리다이렉트·관리자 가드 완화용 */
+export function isDevBypass() {
+  return import.meta.env.DEV === true;
+}
+
 export function clearAuth() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper } from "@mui/material";
-import { getUser } from "../services/auth";
+import { getUser, isDevBypass } from "../services/auth";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -10,7 +10,7 @@ const DB = () => {
   const currentUser = getUser();
 
   useEffect(() => {
-    if (currentUser?.role !== "ADMIN") {
+    if (currentUser?.role !== "ADMIN" && !isDevBypass()) {
       alert("관리자 전용 페이지입니다.");
       navigate("/");
       return;

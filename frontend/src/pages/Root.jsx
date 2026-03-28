@@ -21,12 +21,6 @@ const glowPulse = keyframes`
   100% { opacity: 0.45; transform: scale(1); }
 `;
 
-const shine = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-`;
-
 const featureItems = [
   {
     title: "쓰레기 인식",
@@ -49,6 +43,25 @@ const featureItems = [
     path: "/features/control",
   },
 ];
+
+/** G 실루엣 — 앱 테마 초록 그라데이션(공식 4색 대신 GREENEYE 톤) */
+const GoogleMark = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+    <defs>
+      <linearGradient id="greeneyeGoogleG" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#B8FF9E" />
+        <stop offset="55%" stopColor="#7CFF72" />
+        <stop offset="100%" stopColor="#3FA836" />
+      </linearGradient>
+    </defs>
+    <g fill="url(#greeneyeGoogleG)">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </g>
+  </svg>
+);
 
 const Root = () => {
   const navigate = useNavigate();
@@ -270,19 +283,95 @@ const Root = () => {
           </Box>
 
           {!user ? (
-            <Box sx={{ mt: 1 }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                use_fedcm_for_prompt
-                use_fedcm_for_button
-                theme="filled_black"
-                size="large"
-                shape="pill"
-                text="signin_with"
-                ux_mode="popup"
-                width={260}
-              />
+            <Box
+              sx={{
+                mt: 1,
+                position: "relative",
+                width: "100%",
+                maxWidth: 200,
+                height: 48,
+                mx: "auto",
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "linear-gradient(180deg, rgba(22,22,22,0.98) 0%, rgba(8,8,8,0.99) 100%)",
+                boxShadow: "0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
+                overflow: "hidden",
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+                "&:hover": {
+                  borderColor: "rgba(57,255,20,0.4)",
+                  boxShadow: "0 0 24px rgba(57,255,20,0.14), 0 8px 28px rgba(0,0,0,0.55)",
+                  transform: "translateY(-3px)",
+                  background:
+                    "linear-gradient(180deg, rgba(28,36,28,0.98) 0%, rgba(10,14,10,0.99) 100%)",
+                },
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="center"
+                spacing={1.15}
+                sx={{
+                  height: "100%",
+                  px: 1.75,
+                  pointerEvents: "none",
+                  position: "relative",
+                  zIndex: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    bgcolor: "rgba(124,255,114,0.08)",
+                    border: "1px solid rgba(124,255,114,0.35)",
+                    boxShadow: "0 0 14px rgba(124,255,114,0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <GoogleMark size={17} />
+                </Box>
+                <Typography
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: "0.95rem",
+                    color: "#fff",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  로그인
+                </Typography>
+              </Stack>
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 1,
+                  opacity: 0,
+                  display: "flex",
+                  alignItems: "stretch",
+                  justifyContent: "stretch",
+                  "& > *": { flex: 1, minWidth: "100% !important", width: "100% !important" },
+                  "& iframe": { width: "100% !important", minHeight: "48px !important" },
+                }}
+              >
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  use_fedcm_for_prompt
+                  use_fedcm_for_button
+                  theme="filled_black"
+                  size="large"
+                  shape="rectangular"
+                  text="signin_with"
+                  ux_mode="popup"
+                  width={200}
+                />
+              </Box>
             </Box>
           ) : (
             <Button
