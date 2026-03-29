@@ -19,8 +19,8 @@ services:
       - "9001:9001"
     volumes:
       - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
     networks:
       - global_network
 
@@ -36,3 +36,7 @@ services:
 networks:
   global_network:
     external: true
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:

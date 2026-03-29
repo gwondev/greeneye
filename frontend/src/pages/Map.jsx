@@ -27,25 +27,25 @@ const Map = () => {
       return;
     }
 
-    let cancelled = false;
     if (!navigator.geolocation) {
       setGeoMessage("이 브라우저는 위치 정보를 지원하지 않습니다. 지도는 데모 좌표 기준으로 표시됩니다.");
       return;
     }
-    navigator.geolocation.getCurrentPosition(
+
+    // 내 위치를 실시간에 가깝게 계속 갱신
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        if (cancelled) return;
         setUserPos([pos.coords.latitude, pos.coords.longitude]);
         setGeoMessage("");
       },
       () => {
-        if (cancelled) return;
         setGeoMessage("위치 권한이 필요합니다. 브라우저 설정에서 위치를 허용한 뒤 새로고침 해 주세요.");
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
     );
+
     return () => {
-      cancelled = true;
+      navigator.geolocation.clearWatch(watchId);
     };
   }, [navigate, user?.oauthId]);
 

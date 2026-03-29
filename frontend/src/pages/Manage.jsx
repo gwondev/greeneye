@@ -59,6 +59,7 @@ const Manage = () => {
     disposalRecords: [],
     rewardHistories: [],
   });
+  const [mqttLogs, setMqttLogs] = useState([]);
 
   const [userEditOpen, setUserEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -88,13 +89,17 @@ const Manage = () => {
     try {
       setLoading(true);
       setError("");
-      const data = await apiFetch("/admin/overview");
+      const [data, logs] = await Promise.all([
+        apiFetch("/admin/overview"),
+        apiFetch("/mosquitto/logs?limit=20"),
+      ]);
       setOverview({
         users: data?.users || [],
         modules: data?.modules || [],
         disposalRecords: data?.disposalRecords || [],
         rewardHistories: data?.rewardHistories || [],
       });
+      setMqttLogs(Array.isArray(logs) ? logs : []);
     } catch (e) {
       setError(e.message || "관리 데이터를 불러오지 못했습니다.");
     } finally {
@@ -279,13 +284,6 @@ const Manage = () => {
             <Button onClick={loadOverview} sx={{ color: "#000", bgcolor: "#7CFF72", fontWeight: 800, minHeight: 40, flex: { xs: 1, sm: "none" }, px: { sm: 2 } }}>
               새로고침
             </Button>
-            <Button
-              variant="outlined"
-              sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)", minHeight: 40, flex: { xs: 1, sm: "none" } }}
-              onClick={() => navigate("/mosquitto")}
-            >
-              /mosquitto
-            </Button>
           </Stack>
         </Stack>
 
@@ -411,6 +409,34 @@ const Manage = () => {
               ))}
             </TableBody>
           </Table>
+        </Paper>
+
+        <Paper
+          sx={{
+            p: { xs: 1, sm: 1.25 },
+            mb: 2,
+            bgcolor: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(124,255,114,0.18)",
+            maxHeight: { xs: 220, sm: 260 },
+            overflow: "auto",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 0.7, fontSize: { xs: "0.84rem", sm: "0.95rem" } }}>
+            모스키토 최근 20개
+          </Typography>
+          <Stack spacing={0.35}>
+            {mqttLogs.map((row, idx) => (
+              <Typography key={`${row.time}-${idx}`} sx={{ fontSize: { xs: "0.64rem", sm: "0.72rem" }, lineHeight: 1.25, color: "rgba(255,255,255,0.86)", wordBreak: "break-all" }}>
+                [{row.direction}] {row.time} · {row.topic} · {row.payload}
+              </Typography>
+            ))}
+            {mqttLogs.length === 0 && (
+              <Typography sx={{ fontSize: { xs: "0.7rem", sm: "0.78rem" }, color: "rgba(255,255,255,0.65)" }}>
+                로그 없음
+              </Typography>
+            )}
+          </Stack>
         </Paper>
 
         <Divider sx={{ borderColor: "rgba(255,255,255,0.15)", my: 2 }} />

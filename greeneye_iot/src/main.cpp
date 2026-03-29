@@ -27,6 +27,7 @@ static const int PIN_LED_R = 25;
 static const int PIN_LED_G = 26;
 static const int PIN_LED_B = 27;
 static const bool IR_DETECTED_IS_LOW = true;
+static const unsigned long FULL_DETECT_MS = 10UL * 60UL * 1000UL;  // 10 minutes
 
 static esp_mqtt_client_handle_t s_mqtt = nullptr;
 static volatile bool s_mqtt_connected = false;
@@ -134,7 +135,6 @@ void publishStatusFull() {
   StaticJsonDocument<160> doc;
   doc["status"] = "FULL";
   doc["moduleSerial"] = MODULE_SERIAL;
-  doc["userId"] = MODULE_SERIAL;
   publishDoc(topicStatus().c_str(), doc);
   Serial.println(">>> status FULL");
 }
@@ -179,6 +179,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_CONNECTED:
       Serial.println("MQTT_EVENT_CONNECTED (WS)");
       s_mqtt_connected = true;
+      if (deviceMode == MODE_FULL || fullSent) {
+        publishStatusFull();
+      }
       {
         String tc = topicCmd();
         esp_mqtt_client_subscribe(s_mqtt, tc.c_str(), 1);
@@ -300,7 +303,7 @@ void loop() {
     if (irDetected()) {
       if (fullDetectStartMs == 0) {
         fullDetectStartMs = millis();
-      } else if (!fullSent && millis() - fullDetectStartMs >= 10000UL) {
+      } else if (!fullSent && millis() - fullDetectStartMs >= FULL_DETECT_MS) {
         publishStatusFull();
         deviceMode = MODE_FULL;
         fullSent = true;
