@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <cmath>
 #include <cstring>
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -21,14 +22,17 @@ static const char *WIFI_PASSWORDS[] = {"00000000", "Gwondev0323", ""};
 static const int WIFI_SSID_COUNT = 2;
 static const int WIFI_PASSWORD_COUNT = 3;
 
-// ========== 핀 (RGB LED: R=25, G=26, B=27) ==========
-static const int PIN_IR = 34;
+// ========== 핀 (RGB LED: R=25, G=26, B=27 | 초음파 TRIG=32, ECHO=33) ==========
+static const int PIN_TRIG = 32;
+static const int PIN_ECHO = 33;
 static const int PIN_LED_R = 25;
 static const int PIN_LED_G = 26;
 static const int PIN_LED_B = 27;
-static const bool IR_DETECTED_IS_LOW = true;
-// FULL 오탐 방지: IR 연속 감지가 1시간 지속될 때만 FULL 전환
+// FULL: 거리 10cm 미만이 1시간 연속 유지될 때만 전환
 static const unsigned long FULL_DETECT_MS = 60UL * 60UL * 1000UL;  // 1 hour
+static const float FULL_NEAR_CM = 10.0f;
+static const float READY_DELTA_CM = 20.0f;  // READY 구간에서 기준 대비 20cm 이상 변화 시 CHECK
+static const unsigned long ULTRA_PING_INTERVAL_MS = 65;
 
 static esp_mqtt_client_handle_t s_mqtt = nullptr;
 static volatile bool s_mqtt_connected = false;
@@ -39,6 +43,11 @@ unsigned long readyDeadlineMs = 0;
 unsigned long greenUntilMs = 0;
 unsigned long fullDetectStartMs = 0;
 bool fullSent = false;
+float readyBaselineCm = -1.0f;
+bool readyBaselineSet = false;
+
+static unsigned long s_lastUltraPingMs = 0;
+static float s_lastDistCm = -1.0f;
 
 String topicCmd() { return String("greeneye/") + MODULE_SERIAL + "/cmd"; }
 String topicStatus() { return String("greeneye/") + MODULE_SERIAL + "/status"; }
@@ -55,11 +64,38 @@ void enterDefaultIdle() {
   pendingNickname[0] = '\0';
   fullDetectStartMs = 0;
   fullSent = false;
+  readyBaselineCm = -1.0f;
+  readyBaselineSet = false;
 }
 
-bool irDetected() {
-  int v = digitalRead(PIN_IR);
-  return IR_DETECTED_IS_LOW ? (v == LOW) : (v == HIGH);
+/** HC-SR04류: 실패 시 -1, 유효 시 cm (대략 2~400) */
+float measureDistanceCm() {
+  digitalWrite(PIN_TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(PIN_TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(PIN_TRIG, LOW);
+  unsigned long durationUs = pulseIn(PIN_ECHO, HIGH, 30000);
+  if (durationUs == 0) {
+    return -1.0f;
+  }
+  float cm = (float)durationUs / 58.0f;
+  if (cm < 2.0f || cm > 400.0f) {
+    return -1.0f;
+  }
+  return cm;
+}
+
+void updateUltrasonicSample() {
+  unsigned long now = millis();
+  if (now - s_lastUltraPingMs < ULTRA_PING_INTERVAL_MS) {
+    return;
+  }
+  s_lastUltraPingMs = now;
+  s_lastDistCm = measureDistanceCm();
+  if (s_lastDistCm >= 0) {
+    Serial.printf("[ULTRA] dist=%.1f cm\n", s_lastDistCm);
+  }
 }
 
 bool connectWifiFromLists() {
@@ -153,7 +189,9 @@ void armReady(const char *nick) {
   readyDeadlineMs = millis() + 10000UL;
   applyRgb(true, true, false);  // YELLOW = R + G
   fullDetectStartMs = 0;
-  Serial.printf(">>> READY 10s, userId=%s\n", pendingNickname);
+  readyBaselineCm = -1.0f;
+  readyBaselineSet = false;
+  Serial.printf(">>> READY 10s, userId=%s (delta>=%.0fcm -> CHECK)\n", pendingNickname, (double)READY_DELTA_CM);
 }
 
 void handleIncomingCmdPayload(const char *payload) {
@@ -271,7 +309,9 @@ void startMqttClient() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(PIN_IR, INPUT_PULLUP);
+  pinMode(PIN_TRIG, OUTPUT);
+  pinMode(PIN_ECHO, INPUT);
+  digitalWrite(PIN_TRIG, LOW);
   pinMode(PIN_LED_R, OUTPUT);
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
@@ -303,12 +343,15 @@ void loop() {
     startMqttClient();
   }
 
+  updateUltrasonicSample();
+  float cm = s_lastDistCm;
+
   if (deviceMode == MODE_CHECK_SHOW && millis() >= greenUntilMs) {
     enterDefaultIdle();
   }
 
   if (deviceMode == MODE_DEFAULT) {
-    if (irDetected()) {
+    if (cm >= 0 && cm < FULL_NEAR_CM) {
       if (fullDetectStartMs == 0) {
         fullDetectStartMs = millis();
       } else if (!fullSent && millis() - fullDetectStartMs >= FULL_DETECT_MS) {
@@ -316,6 +359,7 @@ void loop() {
         deviceMode = MODE_FULL;
         fullSent = true;
         applyRgb(true, false, false);  // keep RED
+        Serial.println(">>> enter FULL (near <10cm for 1h)");
       }
     } else {
       fullDetectStartMs = 0;
@@ -333,14 +377,24 @@ void loop() {
     return;
   }
 
-  if (irDetected()) {
-    publishStatusCheck();
-    deviceMode = MODE_CHECK_SHOW;
-    applyRgb(false, true, false);  // GREEN
-    greenUntilMs = millis() + 5000UL;
-    pendingNickname[0] = '\0';
-    delay(20);
-    return;
+  if (cm >= 0) {
+    if (!readyBaselineSet) {
+      readyBaselineCm = cm;
+      readyBaselineSet = true;
+      Serial.printf("[READY] baseline=%.1f cm\n", readyBaselineCm);
+    } else {
+      float delta = std::fabs(cm - readyBaselineCm);
+      if (delta >= READY_DELTA_CM) {
+        Serial.printf(">>> CHECK trigger delta=%.1f (base=%.1f now=%.1f)\n", (double)delta, (double)readyBaselineCm, (double)cm);
+        publishStatusCheck();
+        deviceMode = MODE_CHECK_SHOW;
+        applyRgb(false, true, false);  // GREEN
+        greenUntilMs = millis() + 5000UL;
+        pendingNickname[0] = '\0';
+        delay(20);
+        return;
+      }
+    }
   }
 
   if (millis() >= readyDeadlineMs) {

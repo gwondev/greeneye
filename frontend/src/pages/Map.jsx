@@ -151,12 +151,20 @@ const Map = () => {
 
   const handleReady = async (serialNumber) => {
     const h = (heldType || sessionStorage.getItem(HELD_KEY) || "").trim().toUpperCase();
+    if (!h) {
+      alert("먼저 쓰레기를 촬영해 주세요.");
+      return;
+    }
     const mod = modules.find((x) => x.serialNumber === serialNumber);
-    if (h && mod && (mod.type || "GENERAL").toUpperCase() !== h) {
+    if (mod && (mod.type || "GENERAL").toUpperCase() !== h) {
       alert(`Camera에서 선택한 분류(${h})와 같은 유형의 쓰레기통만 사용할 수 있습니다.`);
       return;
     }
-    const selected = sessionStorage.getItem(HELD_KEY) || "CAN";
+    const selected = sessionStorage.getItem(HELD_KEY);
+    if (!selected || !String(selected).trim()) {
+      alert("먼저 쓰레기를 촬영해 주세요.");
+      return;
+    }
     const target = modules.find((x) => x.serialNumber === serialNumber);
     if (target && String(target.status || "").toUpperCase() === "FULL") {
       alert("해당 모듈은 FULL 상태라 선택할 수 없습니다.");
@@ -201,6 +209,8 @@ const Map = () => {
     return `${label} (${key})`;
   }, [heldType]);
 
+  const hasHeldWaste = Boolean((heldType || sessionStorage.getItem(HELD_KEY) || "").trim());
+
   return (
     <Box
       sx={{
@@ -242,72 +252,60 @@ const Map = () => {
               님
             </Typography>
           </Stack>
-          <Typography
-            variant="body2"
-            component="div"
-            sx={{ color: "rgba(255,255,255,0.68)", mt: 1, fontSize: { xs: "0.78rem", sm: "0.875rem" }, lineHeight: 1.5 }}
-          >
-            내 위치{" "}
-            <Box component="span" aria-label="파란 원" sx={{ display: "inline-block" }}>
-              🔵
-            </Box>{" "}
-             모듈{" "}
-            <Box component="span" aria-label="초록 원" sx={{ display: "inline-block" }}>
-              🟢
-            </Box>
-          </Typography>
           {heldType && (
             <Typography sx={{ color: "#7CFF72", mt: 0.75, fontWeight: 700, fontSize: { xs: "0.75rem", sm: "0.875rem" }, lineHeight: 1.4 }}>
               인식·선택 분류: {heldType} (Camera에서 확정 시 저장)
             </Typography>
           )}
         </Box>
-        {showAdminNav && (
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "flex-start" }}
+          sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" } }}
+        >
+          {showAdminNav && (
+            <Button
+              size="small"
+              fullWidth={false}
+              startIcon={<AdminPanelSettingsRoundedIcon />}
+              onClick={() => navigate("/manage")}
+              sx={{
+                color: "#7CFF72",
+                border: "1px solid rgba(124,255,114,0.4)",
+                minHeight: 40,
+                px: 2,
+                fontWeight: 800,
+                textTransform: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              MANAGE
+            </Button>
+          )}
           <Button
             size="small"
-            fullWidth
-            startIcon={<AdminPanelSettingsRoundedIcon />}
-            onClick={() => navigate("/manage")}
+            variant="outlined"
+            fullWidth={false}
+            startIcon={<MenuBookRoundedIcon sx={{ fontSize: 18 }} />}
+            onClick={() => navigate("/map/guide")}
             sx={{
               color: "#7CFF72",
-              border: "1px solid rgba(124,255,114,0.4)",
-              flexShrink: 0,
-              alignSelf: { xs: "stretch", md: "flex-start" },
-              minHeight: 42,
-              maxWidth: { md: 200 },
-              fontWeight: 800,
+              borderColor: "rgba(124,255,114,0.45)",
+              fontWeight: 700,
               textTransform: "none",
+              borderRadius: 999,
+              py: { xs: 0.7, sm: 0.55 },
+              minHeight: 40,
+              fontSize: { xs: "0.74rem", sm: "0.82rem" },
+              bgcolor: "rgba(0,0,0,0.2)",
+              whiteSpace: "nowrap",
             }}
           >
-            MANAGE
+            사이트 이용방법
           </Button>
-        )}
+        </Stack>
       </Stack>
-
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<MenuBookRoundedIcon sx={{ fontSize: 18 }} />}
-        onClick={() => navigate("/map/guide")}
-        sx={{
-          position: "absolute",
-          right: { xs: 10, sm: 18 },
-          top: { xs: 10, sm: 14 },
-          zIndex: 1450,
-          color: "#7CFF72",
-          borderColor: "rgba(124,255,114,0.45)",
-          fontWeight: 700,
-          textTransform: "none",
-          borderRadius: 999,
-          py: { xs: 0.7, sm: 0.55 },
-          minHeight: { xs: 36, sm: 32 },
-          fontSize: { xs: "0.74rem", sm: "0.82rem" },
-          bgcolor: "rgba(0,0,0,0.25)",
-          backdropFilter: "blur(3px)",
-        }}
-      >
-        사이트 이용방법
-      </Button>
 
       {/* 가운데 상단: 현재 리워드 */}
       <Box
@@ -428,6 +426,41 @@ const Map = () => {
           bgcolor: "#0a0f0a",
         }}
       >
+        <Box
+          sx={{
+            position: "absolute",
+            left: { xs: 8, sm: 12 },
+            bottom: { xs: 8, sm: 12 },
+            zIndex: 1200,
+            px: { xs: 0.85, sm: 1 },
+            py: { xs: 0.55, sm: 0.65 },
+            borderRadius: 1,
+            bgcolor: "rgba(0,0,0,0.82)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            pointerEvents: "none",
+          }}
+        >
+          <Typography
+            component="div"
+            sx={{
+              color: "rgba(255,255,255,0.88)",
+              fontSize: { xs: "0.58rem", sm: "0.65rem" },
+              lineHeight: 1.35,
+              fontWeight: 600,
+            }}
+          >
+            내 위치{" "}
+            <Box component="span" aria-label="파란 원" sx={{ display: "inline-block" }}>
+              🔵
+            </Box>
+            <br />
+            쓰레기통{" "}
+            <Box component="span" aria-label="초록 원" sx={{ display: "inline-block" }}>
+              🟢
+            </Box>
+          </Typography>
+        </Box>
         {heldTypeSummary && (
           <Box
             sx={{
@@ -460,7 +493,7 @@ const Map = () => {
             </Box>
           }
         >
-          <MapView userPos={userPos} modules={modulesForMap} onReady={handleReady} />
+          <MapView userPos={userPos} modules={modulesForMap} onReady={handleReady} hasHeldWaste={hasHeldWaste} />
         </Suspense>
       </Paper>
 
@@ -550,7 +583,7 @@ const Map = () => {
                 </Typography>
                 <Button
                   size="small"
-                  disabled={String(m.status || "").toUpperCase() === "FULL"}
+                  disabled={String(m.status || "").toUpperCase() === "FULL" || !hasHeldWaste}
                   onClick={() => handleReady(m.serialNumber)}
                   sx={{ color: "#7CFF72", border: "1px solid rgba(124,255,114,0.4)", minWidth: 72, minHeight: 36 }}
                 >

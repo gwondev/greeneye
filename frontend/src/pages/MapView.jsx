@@ -18,8 +18,9 @@ function FlyTo({ center, zoom }) {
  * @param {[[number,number]|null]} props.userPos
  * @param {Array} props.modules
  * @param {(serial: string) => void} props.onReady
+ * @param {boolean} props.hasHeldWaste
  */
-export default function MapView({ userPos, modules, onReady }) {
+export default function MapView({ userPos, modules, onReady, hasHeldWaste = false }) {
   const fallback = [35.1462, 126.9229];
   const center = userPos && userPos[0] != null && userPos[1] != null ? userPos : fallback;
 
@@ -96,24 +97,29 @@ export default function MapView({ userPos, modules, onReady }) {
                     상태 {m.status || "—"}
                     {m.totalDisposalCount != null ? ` · 누적 배출 ${m.totalDisposalCount}회` : ""}
                   </Typography>
+                  {!hasHeldWaste && (
+                    <Typography sx={{ color: "rgba(255,214,128,0.95)", fontSize: "0.72rem", mb: 1, fontWeight: 700 }}>
+                      먼저 쓰레기를 촬영해 주세요.
+                    </Typography>
+                  )}
                   <Button
                     fullWidth
                     size="small"
                     variant="contained"
-                    disabled={isFull}
+                    disabled={isFull || !hasHeldWaste}
                     onClick={() => onReady(m.serialNumber)}
                     sx={{
-                      bgcolor: isFull ? "rgba(255,255,255,0.2)" : "#7CFF72",
-                      color: isFull ? "rgba(255,255,255,0.75)" : "#050805",
+                      bgcolor: isFull || !hasHeldWaste ? "rgba(255,255,255,0.2)" : "#7CFF72",
+                      color: isFull || !hasHeldWaste ? "rgba(255,255,255,0.75)" : "#050805",
                       fontWeight: 900,
                       textTransform: "none",
                       borderRadius: 2,
                       py: 0.75,
-                      boxShadow: isFull ? "none" : "0 4px 16px rgba(124,255,114,0.25)",
-                      "&:hover": { bgcolor: isFull ? "rgba(255,255,255,0.2)" : "#9dff92" },
+                      boxShadow: isFull || !hasHeldWaste ? "none" : "0 4px 16px rgba(124,255,114,0.25)",
+                      "&:hover": { bgcolor: isFull || !hasHeldWaste ? "rgba(255,255,255,0.2)" : "#9dff92" },
                     }}
                   >
-                    {isFull ? "가득참(FULL)" : "버리기"}
+                    {isFull ? "가득참(FULL)" : !hasHeldWaste ? "촬영 필요" : "버리기"}
                   </Button>
                 </Box>
               </Popup>
