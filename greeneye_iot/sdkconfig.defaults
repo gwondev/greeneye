@@ -1,0 +1,1 @@
+# TLS: ESP CA 번들(esp_crt_bundle_attach)로 서버 검증. INSECURE 비활성(최신 esp-tls는 검증 수단 없으면 거부)

@@ -3,8 +3,9 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <mqtt_client.h>
-#include <WiFiClientSecure.h>
-#include <esp_crt_bundle.h>
+
+// Arduino WiFiClientSecure 의 esp_crt_bundle.h 가 IDF 헤더와 이름이 겹쳐 SDK 심볼을 가림 → 전방 선언
+extern "C" esp_err_t esp_crt_bundle_attach(void *conf);
 
 // ========== 모듈 고유번호만 수정 (DB modules.serial_number) ==========
 static const char *MODULE_SERIAL = "g1";
@@ -14,7 +15,7 @@ static const char *MODULE_SERIAL = "g1";
  * ESP32는 Raw TCP 1883이 아니라 WSS로 같은 브로커에 붙는다.
  * URI는 환경에 맞게 조정 (경로는 Mosquitto 기본 / 또는 /mqtt — 안 되면 둘 다 시도)
  */
-// wss 기본 포트는 443 (:443 생략 가능). 경로는 Mosquitto·터널에 맞게 (/ 또는 /mqtt)
+// wss 기본 포트 443. 경로: Mosquitto 기본 WS는 / 인 경우 많음 → 안 되면 "/mqtt" 제거해 "wss://mqtt.greeneye.gwon.run" 만 시도
 static const char *MQTT_WSS_URI = "wss://mqtt.greeneye.gwon.run/mqtt";
 
 // ========== WiFi ==========
@@ -234,8 +235,11 @@ void startMqttClient() {
   cfg.disable_auto_reconnect = false;
   cfg.reconnect_timeout_ms = 8000;
   cfg.buffer_size = 4096;
-  // use_global_ca_store 만 켜면 Arduino에서 CA가 비어 있어 TLS 실패함 → 번들 사용
-  cfg.crt_bundle_attach = arduino_esp_crt_bundle_attach;
+  // esp-tls는 CA 번들·PEM·global store 등 "검증 수단"이 하나는 있어야 함 (전부 null 이면 SSL 설정 실패)
+  cfg.use_global_ca_store = false;
+  cfg.crt_bundle_attach = esp_crt_bundle_attach;
+  cfg.cert_pem = nullptr;
+  cfg.skip_cert_common_name_check = false;
 
   s_mqtt = esp_mqtt_client_init(&cfg);
   esp_mqtt_client_register_event(s_mqtt, MQTT_EVENT_ANY, mqtt_event_handler, nullptr);
