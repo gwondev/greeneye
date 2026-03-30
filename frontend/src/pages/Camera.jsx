@@ -95,15 +95,34 @@ const Camera = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      sx={{ minHeight: "100dvh", bgcolor: "#030403", color: "#fff", py: 4, display: "flex", justifyContent: "center" }}
+      sx={{
+        minHeight: "100dvh",
+        bgcolor: "#030403",
+        color: "#fff",
+        py: { xs: 2, sm: 3.5 },
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        overflowX: "hidden",
+      }}
     >
-      <Container maxWidth="sm" sx={{ display: "flex", justifyContent: "center" }}>
-        <Stack spacing={3} alignItems="center" textAlign="center" sx={{ width: "100%", maxWidth: 480 }}>
+      <Container maxWidth={false} sx={{ display: "flex", justifyContent: "center", px: { xs: 1.25, sm: 2 } }}>
+        <Stack
+          spacing={{ xs: 2.1, sm: 3 }}
+          alignItems="stretch"
+          textAlign="center"
+          sx={{ width: "min(100%, 520px)", mx: "auto" }}
+        >
           <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: "-0.03em" }}>
             쓰레기 촬영 · 분류
           </Typography>
-          <Typography sx={{ color: "rgba(255,255,255,0.72)", lineHeight: 1.75, px: 1 }}>
-            모바일은 카메라, PC는 파일 선택. AI로 분석하고, 아래에서 직접 고를 수도 있습니다.
+          <Typography sx={{ color: "rgba(255,255,255,0.72)", lineHeight: 1.55, px: { xs: 0.4, sm: 1 }, fontSize: { xs: "0.86rem", sm: "1rem" } }}>
+            <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>
+              모바일은 촬영, PC는 파일 선택 후 분석하세요.
+            </Box>
+            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+              모바일은 카메라, PC는 파일 선택. AI로 분석하고, 아래에서 직접 고를 수도 있습니다.
+            </Box>
           </Typography>
 
           <input
@@ -116,22 +135,20 @@ const Camera = () => {
           />
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onFileChosen} />
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: "100%", justifyContent: "center" }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: "100%", justifyContent: "center", alignItems: "stretch" }}>
             <Button
-              fullWidth
               variant="contained"
               startIcon={<PhotoCameraRoundedIcon />}
               onClick={() => cameraInputRef.current?.click()}
-              sx={{ bgcolor: "#7CFF72", color: "#000", fontWeight: 800, py: 1.2, maxWidth: 360, mx: "auto" }}
+              sx={{ bgcolor: "#7CFF72", color: "#000", fontWeight: 800, py: 1.2, width: { xs: "100%", sm: "calc(50% - 6px)" } }}
             >
               카메라 / 촬영
             </Button>
             <Button
-              fullWidth
               variant="outlined"
               startIcon={<ImageRoundedIcon />}
               onClick={() => fileInputRef.current?.click()}
-              sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.45)", fontWeight: 700, maxWidth: 360, mx: "auto" }}
+              sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.45)", fontWeight: 700, width: { xs: "100%", sm: "calc(50% - 6px)" } }}
             >
               파일에서 선택
             </Button>
@@ -209,16 +226,20 @@ const Camera = () => {
             </Typography>
           </Box>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: "100%", justifyContent: "center", pt: 1 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ width: "100%", justifyContent: "center", pt: 1, alignItems: "stretch" }}>
             <Button
               variant="contained"
               disabled={!finalType}
               onClick={confirmAndGoMap}
-              sx={{ bgcolor: "#7CFF72", color: "#000", fontWeight: 900, flex: 1, maxWidth: 320, mx: "auto" }}
+              sx={{ bgcolor: "#7CFF72", color: "#000", fontWeight: 900, flex: 1, width: { xs: "100%", sm: "calc(50% - 6px)" } }}
             >
               분류 확정 후 지도로
             </Button>
-            <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)", maxWidth: 320, mx: "auto" }} onClick={() => navigate("/map")}>
+            <Button
+              variant="outlined"
+              sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)", width: { xs: "100%", sm: "calc(50% - 6px)" } }}
+              onClick={() => navigate("/map")}
+            >
               지도로 (저장 안 함)
             </Button>
           </Stack>

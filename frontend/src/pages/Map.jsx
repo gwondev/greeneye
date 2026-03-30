@@ -38,12 +38,12 @@ const ctaShine = keyframes`
 `;
 const rewardRingBig = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.35); opacity: 0.95; }
-  100% { transform: translate(-50%, -50%) scale(4.4); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(5.2); opacity: 0; }
 `;
 const rewardSpark = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
   20% { opacity: 1; }
-  100% { transform: translate(-50%, -120px) scale(1.35); opacity: 0; }
+  100% { transform: translate(-50%, -146px) scale(1.55); opacity: 0; }
 `;
 
 const Map = () => {
@@ -247,7 +247,7 @@ const Map = () => {
         bgcolor: "#030403",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        overflowX: "hidden",
         p: { xs: 1.25, sm: 2, md: 2.5 },
         pb: { xs: 1, sm: 1.25 },
         boxSizing: "border-box",
@@ -297,11 +297,11 @@ const Map = () => {
           fontWeight: 700,
           textTransform: "none",
           borderRadius: 999,
-          py: { xs: 0.45, sm: 0.5 },
-          px: { xs: 1.05, sm: 1.2 },
-          minHeight: { xs: 30, sm: 34 },
+          py: { xs: 0.45, sm: 0.55 },
+          px: { xs: 1.2, sm: 1.35 },
+          minHeight: { xs: 34, sm: 38 },
           minWidth: 0,
-          fontSize: { xs: "0.68rem", sm: "0.74rem" },
+          fontSize: { xs: "0.72rem", sm: "0.78rem" },
           lineHeight: 1.1,
           bgcolor: "rgba(0,0,0,0.28)",
           whiteSpace: "nowrap",
@@ -320,19 +320,23 @@ const Map = () => {
           top: { xs: 12, sm: 14 },
           transform: "translateX(-50%)",
           zIndex: 1400,
-          px: { xs: 1.6, sm: 1.9 },
-          py: { xs: 0.7, sm: 0.85 },
+          px: { xs: 1.35, sm: 1.55 },
+          py: { xs: 0.45, sm: 0.55 },
+          minHeight: { xs: 34, sm: 38 },
           borderRadius: 999,
           border: "1px solid rgba(124,255,114,0.26)",
           background: "linear-gradient(180deg, rgba(10,24,10,0.88), rgba(4,10,4,0.84))",
           boxShadow: "0 10px 28px rgba(0,0,0,0.38), inset 0 1px 0 rgba(190,255,180,0.12)",
           color: "#7CFF72",
           fontWeight: 900,
-          fontSize: { xs: "0.95rem", sm: "1.08rem" },
+          fontSize: { xs: "0.82rem", sm: "0.9rem" },
           letterSpacing: "-0.01em",
           textShadow: "0 4px 18px rgba(124,255,114,0.35)",
           userSelect: "none",
           cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           transition: "transform 180ms ease, box-shadow 180ms ease",
           "&:hover": { transform: "translateX(-50%) translateY(-1px)", boxShadow: "0 14px 34px rgba(0,0,0,0.44), 0 0 22px rgba(124,255,114,0.22)" },
           "&:active": { transform: "translateX(-50%) scale(0.98)" },
@@ -347,10 +351,10 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: { xs: 30, sm: 34 },
-              width: 52,
-              height: 52,
+              width: 74,
+              height: 74,
               borderRadius: "50%",
-              border: "3px solid rgba(124,255,114,0.75)",
+              border: "4px solid rgba(124,255,114,0.78)",
               animation: `${ringAnim} 0.9s ease-out`,
               zIndex: 1450,
               pointerEvents: "none",
@@ -360,11 +364,11 @@ const Map = () => {
             sx={{
               position: "absolute",
               left: "50%",
-              top: { xs: 44, sm: 50 },
+              top: { xs: 54, sm: 62 },
               color: "rgba(173,255,151,0.95)",
               fontWeight: 900,
-              fontSize: { xs: "1.4rem", sm: "1.8rem" },
-              transform: "translateX(-24px)",
+              fontSize: { xs: "2.1rem", sm: "2.8rem" },
+              transform: "translateX(-34px)",
               textShadow: "0 8px 30px rgba(124,255,114,0.55)",
               animation: `${popAnim} 0.95s ease-out`,
               zIndex: 1451,
@@ -377,11 +381,11 @@ const Map = () => {
             sx={{
               position: "absolute",
               left: "50%",
-              top: { xs: 62, sm: 70 },
+              top: { xs: 82, sm: 92 },
               color: "#7CFF72",
               fontWeight: 900,
-              fontSize: { xs: "1.6rem", sm: "2.2rem" },
-              transform: "translateX(-2px)",
+              fontSize: { xs: "2.4rem", sm: "3.1rem" },
+              transform: "translateX(-8px)",
               textShadow: "0 8px 28px rgba(124,255,114,0.55)",
               animation: `${popAnim} 0.95s ease-out`,
               zIndex: 1451,
@@ -399,8 +403,8 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: { xs: 36, sm: 40 },
-              width: 62,
-              height: 62,
+              width: 90,
+              height: 90,
               borderRadius: "50%",
               border: "3px solid rgba(124,255,114,0.65)",
               animation: `${rewardRingBig} 0.9s ease-out`,
@@ -408,9 +412,9 @@ const Map = () => {
               pointerEvents: "none",
             }}
           />
-          <Box sx={{ position: "absolute", left: "50%", top: { xs: 48, sm: 52 }, color: "#c9ffbf", fontSize: { xs: "1.6rem", sm: "2rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, zIndex: 1453, pointerEvents: "none" }}>✦</Box>
-          <Box sx={{ position: "absolute", left: "50%", top: { xs: 48, sm: 52 }, color: "#a6ff98", fontSize: { xs: "1.4rem", sm: "1.8rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, animationDelay: "90ms", zIndex: 1453, pointerEvents: "none" }}>✶</Box>
-          <Box sx={{ position: "absolute", left: "50%", top: { xs: 48, sm: 52 }, color: "#7CFF72", fontSize: { xs: "1.8rem", sm: "2.2rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, animationDelay: "160ms", zIndex: 1453, pointerEvents: "none" }}>✷</Box>
+          <Box sx={{ position: "absolute", left: "50%", top: { xs: 58, sm: 66 }, color: "#c9ffbf", fontSize: { xs: "2.2rem", sm: "2.9rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, zIndex: 1453, pointerEvents: "none" }}>✦</Box>
+          <Box sx={{ position: "absolute", left: "50%", top: { xs: 58, sm: 66 }, color: "#a6ff98", fontSize: { xs: "2rem", sm: "2.6rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, animationDelay: "90ms", zIndex: 1453, pointerEvents: "none" }}>✶</Box>
+          <Box sx={{ position: "absolute", left: "50%", top: { xs: 58, sm: 66 }, color: "#7CFF72", fontSize: { xs: "2.3rem", sm: "3rem" }, transform: "translateX(-50%)", animation: `${rewardSpark} 0.9s ease-out`, animationDelay: "160ms", zIndex: 1453, pointerEvents: "none" }}>✷</Box>
         </>
       )}
 
@@ -456,6 +460,7 @@ const Map = () => {
         sx={{
           flex: 1,
           minHeight: 0,
+          mt: { xs: 2.8, sm: 2.2 },
           position: "relative",
           borderRadius: 3,
           overflow: "hidden",
