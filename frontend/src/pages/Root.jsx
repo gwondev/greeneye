@@ -31,7 +31,7 @@ const glowPulse = keyframes`
 
 const featureItems = [
   {
-    title: "AI 촬영 · 분리배출 안내",
+    title: "AI 분리배출 안내",
     icon: <AutoAwesomeRoundedIcon sx={{ fontSize: 26 }} />,
     path: "/features/smart-disposal",
   },
@@ -52,7 +52,7 @@ const featureItems = [
   },
 ];
 
-/** G 실루엣 — 앱 테마 초록 그라데이션(공식 4색 대신 GREENEYE 톤) */
+/** G 실루엣 — 앱 테마 초록 그라데이션(공식 4색 대신 GREENEYE톤) */
 const GoogleMark = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
     <defs>
