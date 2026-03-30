@@ -101,4 +101,43 @@ public class UserController {
         }
         userRepository.delete(user);
     }
+
+    @PostMapping("/{id}/exchange")
+    @Transactional
+    public Map<String, Object> exchangeReward(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body
+    ) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        int cost = parseInt(body.get("cost"), 0);
+        if (cost <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cost must be positive");
+        }
+        if (user.getNowRewards() < cost) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "not enough rewards");
+        }
+
+        user.setNowRewards(user.getNowRewards() - cost);
+        userRepository.save(user);
+
+        String item = body.get("item") == null ? "" : body.get("item").toString().trim();
+        return Map.of(
+                "ok", true,
+                "item", item,
+                "cost", cost,
+                "nowRewards", user.getNowRewards()
+        );
+    }
+
+    private static int parseInt(Object raw, int fallback) {
+        if (raw == null) return fallback;
+        if (raw instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(raw.toString().trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
 }
