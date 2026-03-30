@@ -12,7 +12,7 @@ const MapView = lazy(() => import("./MapView.jsx"));
 
 const HELD_KEY = "greeneye.finalWasteType";
 const HELD_TYPE_LABELS = {
-  CAN: "캔류",
+  CAN: "캔",
   PET: "페트병",
   GENERAL: "일반쓰레기",
   HAZARD: "유해폐기물",
@@ -429,36 +429,35 @@ const Map = () => {
         <Box
           sx={{
             position: "absolute",
-            left: { xs: 8, sm: 12 },
-            bottom: { xs: 8, sm: 12 },
+            left: { xs: 6, sm: 8 },
+            bottom: { xs: 6, sm: 8 },
             zIndex: 1200,
-            px: { xs: 0.85, sm: 1 },
-            py: { xs: 0.55, sm: 0.65 },
-            borderRadius: 1,
+            px: { xs: 0.5, sm: 0.65 },
+            py: { xs: 0.35, sm: 0.45 },
+            borderRadius: 0.75,
             bgcolor: "rgba(0,0,0,0.82)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
             pointerEvents: "none",
           }}
         >
           <Typography
             component="div"
             sx={{
-              color: "rgba(255,255,255,0.88)",
-              fontSize: { xs: "0.58rem", sm: "0.65rem" },
-              lineHeight: 1.35,
+              color: "rgba(255,255,255,0.82)",
+              fontSize: { xs: "0.45rem", sm: "0.5rem" },
+              lineHeight: 1.25,
               fontWeight: 600,
             }}
           >
-            내 위치{" "}
-            <Box component="span" aria-label="파란 원" sx={{ display: "inline-block" }}>
+            <Box component="span" aria-label="파란 원" sx={{ fontSize: "0.85em" }}>
               🔵
-            </Box>
-            <br />
-            쓰레기통{" "}
-            <Box component="span" aria-label="초록 원" sx={{ display: "inline-block" }}>
+            </Box>{" "}
+            내 위치 ·{" "}
+            <Box component="span" aria-label="초록 원" sx={{ fontSize: "0.85em" }}>
               🟢
-            </Box>
+            </Box>{" "}
+            통
           </Typography>
         </Box>
         {heldTypeSummary && (

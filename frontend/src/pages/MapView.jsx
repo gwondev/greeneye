@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "r
 import { Button, Typography, Box } from "@mui/material";
 import "leaflet/dist/leaflet.css";
 import "./map-popup.css";
+import { moduleTypeLabel } from "../constants/wasteLabels";
 
 function FlyTo({ center, zoom }) {
   const map = useMap();
@@ -69,7 +70,8 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
         {modules.map((m) => {
           if (m.lat == null || m.lon == null) return null;
           const isFull = String(m.status || "").toUpperCase() === "FULL";
-          const org = (m.organization && String(m.organization).trim()) || "기관 미등록";
+          const typeTitle = moduleTypeLabel(m.type);
+          const serial = (m.serialNumber && String(m.serialNumber).trim()) || "—";
           return (
             <CircleMarker
               key={m.id}
@@ -83,19 +85,26 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
               }}
             >
               <Tooltip direction="top" offset={[0, -6]} opacity={1} permanent>
-                <span style={{ color: "#7CFF72", fontWeight: 800, fontSize: 12, textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>{m.type || "—"}</span>
+                <span style={{ color: "#7CFF72", fontWeight: 800, fontSize: 11, textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>{typeTitle}</span>
               </Tooltip>
               <Popup className="greeneye-popup">
                 <Box sx={{ minWidth: { xs: 200, sm: 220 }, maxWidth: 280 }}>
-                  <Typography sx={{ color: "#7CFF72", fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.3, mb: 0.75 }}>
-                    {org}
+                  <Typography sx={{ color: "#7CFF72", fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.3, mb: 0.65 }}>
+                    {typeTitle}
                   </Typography>
-                  <Typography sx={{ color: "rgba(232,255,232,0.88)", fontSize: "0.78rem", mb: 0.35 }}>
-                    수거 종류 · <Box component="span" sx={{ color: "#b8ff9e", fontWeight: 700 }}>{m.type || "—"}</Box>
-                  </Typography>
-                  <Typography sx={{ color: "rgba(232,255,232,0.75)", fontSize: "0.72rem", mb: 1 }}>
-                    상태 {m.status || "—"}
-                    {m.totalDisposalCount != null ? ` · 누적 배출 ${m.totalDisposalCount}회` : ""}
+                  <Typography sx={{ color: "rgba(232,255,232,0.72)", fontSize: "0.62rem", mb: 0.45, lineHeight: 1.45 }}>
+                    {serial}
+                    <Box component="span" sx={{ color: "rgba(232,255,232,0.5)" }}>
+                      {" "}
+                      · 상태{" "}
+                    </Box>
+                    <Box component="span" sx={{ color: "rgba(232,255,232,0.78)" }}>{m.status || "—"}</Box>
+                    {m.totalDisposalCount != null ? (
+                      <>
+                        <Box component="span" sx={{ color: "rgba(232,255,232,0.5)" }}> · </Box>
+                        누적 배출 {m.totalDisposalCount}회
+                      </>
+                    ) : null}
                   </Typography>
                   {!hasHeldWaste && (
                     <Typography sx={{ color: "rgba(255,214,128,0.95)", fontSize: "0.72rem", mb: 1, fontWeight: 700 }}>

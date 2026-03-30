@@ -1,10 +1,10 @@
 import { Box, Typography, Container, Stack, Button } from "@mui/material";
 import { keyframes } from "@emotion/react";
 import { motion } from "framer-motion";
-import CameraAltRoundedIcon from "@mui/icons-material/CameraAltRounded";
-import RecyclingRoundedIcon from "@mui/icons-material/RecyclingRounded";
-import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
-import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import DeviceHubRoundedIcon from "@mui/icons-material/DeviceHubRounded";
+import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import MapRoundedIcon from "@mui/icons-material/MapRounded";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import {
@@ -31,24 +31,24 @@ const glowPulse = keyframes`
 
 const featureItems = [
   {
-    title: "쓰레기 인식",
-    icon: <CameraAltRoundedIcon sx={{ fontSize: 26 }} />,
-    path: "/features/recognition",
+    title: "AI 촬영 · 분리배출 안내",
+    icon: <AutoAwesomeRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/smart-disposal",
   },
   {
-    title: "분리배출 안내",
-    icon: <RecyclingRoundedIcon sx={{ fontSize: 26 }} />,
-    path: "/features/guide",
+    title: "IoT 모듈 연동",
+    icon: <DeviceHubRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/iot",
   },
   {
-    title: "리워드 검증 및 지급",
-    icon: <SensorsRoundedIcon sx={{ fontSize: 26 }} />,
+    title: "리워드",
+    icon: <WorkspacePremiumRoundedIcon sx={{ fontSize: 26 }} />,
     path: "/features/reward",
   },
   {
-    title: "관제 기능",
-    icon: <DashboardRoundedIcon sx={{ fontSize: 26 }} />,
-    path: "/features/control",
+    title: "쓰레기통 통합 관제",
+    icon: <MapRoundedIcon sx={{ fontSize: 26 }} />,
+    path: "/features/operations",
   },
 ];
 
@@ -243,11 +243,14 @@ const Root = () => {
           >
             {featureItems.map((item) => (
               <motion.div
-                key={item.title}
+                key={item.path}
                 variants={{
                   hidden: { opacity: 0, y: 16 },
                   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
                 }}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 420, damping: 28 }}
                 style={{ width: "100%", minWidth: 0 }}
               >
               <Button

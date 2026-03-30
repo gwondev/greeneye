@@ -1,21 +1,22 @@
 import { Box, Typography, Container, Stack, Button } from "@mui/material";
-import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import DeviceHubRoundedIcon from "@mui/icons-material/DeviceHubRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { keyframes } from "@emotion/react";
 
-const shine = keyframes`
-  0% { background-position: -100% 0; }
-  100% { background-position: 200% 0; }
+const ping = keyframes`
+  0% { transform: scale(1); opacity: 0.5; }
+  70% { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
 `;
 
 const bullets = [
-  "IoT로 배출이 확인되면 포인트를 적립합니다.",
-  "정책에 맞게 지급·정산 흐름을 유지합니다.",
+  "투입구·센서가 실제 배출 여부를 감지합니다.",
+  "MQTT로 서버·앱과 실시간으로 상태를 맞춥니다.",
 ];
 
-const Reward = () => {
+const IotIntegration = () => {
   const navigate = useNavigate();
 
   return (
@@ -33,14 +34,13 @@ const Reward = () => {
       <Box
         sx={{
           position: "absolute",
-          top: "40%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 400,
-          height: 400,
+          bottom: "-25%",
+          left: "-10%",
+          width: 280,
+          height: 280,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,215,80,0.06) 0%, transparent 65%)",
-          filter: "blur(50px)",
+          background: "radial-gradient(circle, rgba(0,255,140,0.1) 0%, transparent 70%)",
+          filter: "blur(36px)",
           pointerEvents: "none",
         }}
       />
@@ -51,40 +51,44 @@ const Reward = () => {
           alignItems="center"
           textAlign="center"
           component={motion.div}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
-          <motion.div
-            animate={{ rotateY: [0, 12, -12, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            style={{ perspective: 400 }}
-          >
+          <Box sx={{ position: "relative", width: 96, height: 96 }}>
             <Box
               sx={{
-                width: 88,
-                height: 88,
-                borderRadius: "20px",
+                position: "absolute",
+                inset: 0,
+                borderRadius: "24px",
+                border: "2px solid rgba(124,255,114,0.35)",
+                animation: `${ping} 2.4s cubic-bezier(0,0,0.2,1) infinite`,
+              }}
+            />
+            <motion.div
+              animate={{ rotate: [0, 8, -8, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                borderRadius: 20,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#E8D35C",
-                background: "linear-gradient(135deg, rgba(255,215,80,0.15), rgba(57,255,20,0.06))",
-                border: "1px solid rgba(255,215,80,0.28)",
-                backgroundSize: "200% 100%",
-                animation: `${shine} 4s linear infinite`,
+                background: "linear-gradient(145deg, rgba(57,255,20,0.12), rgba(57,255,20,0.03))",
+                border: "1px solid rgba(57,255,20,0.22)",
               }}
             >
-              <WorkspacePremiumRoundedIcon sx={{ fontSize: 44 }} />
-            </Box>
-          </motion.div>
+              <DeviceHubRoundedIcon sx={{ fontSize: 48, color: "#7CFF72" }} />
+            </motion.div>
+          </Box>
 
           <Stack spacing={0.75}>
             <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: "-0.02em" }}>
-              리워드
+              IoT 모듈 연동
             </Typography>
             <Typography sx={{ color: "#7CFF72", fontWeight: 600, fontSize: "0.95rem" }}>
-              검증 후 포인트 지급
+              센서 · MQTT · 엣지 기기
             </Typography>
           </Stack>
 
@@ -96,7 +100,7 @@ const Reward = () => {
               maxWidth: 400,
             }}
           >
-            분리배출 실천이 곧 보상으로 이어지도록 설계했습니다.
+            현장 하드웨어와 백엔드를 안정적으로 이어 줍니다.
           </Typography>
 
           <Stack spacing={1.2} sx={{ width: "100%", maxWidth: 420, textAlign: "left" }}>
@@ -113,7 +117,7 @@ const Reward = () => {
                     gap: 1.25,
                     alignItems: "flex-start",
                     pl: 1,
-                    borderLeft: "3px solid rgba(232,211,92,0.55)",
+                    borderLeft: "3px solid rgba(124,255,114,0.45)",
                     py: 0.25,
                   }}
                 >
@@ -148,4 +152,4 @@ const Reward = () => {
   );
 };
 
-export default Reward;
+export default IotIntegration;

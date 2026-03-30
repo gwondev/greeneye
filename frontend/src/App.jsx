@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
 import Root from "./pages/Root";
 import Manage from "./pages/Manage";
@@ -8,10 +8,10 @@ import Map from "./pages/Map";
 import MapGuide from "./pages/MapGuide";
 import Camera from "./pages/Camera";
 import Input from "./pages/Input";
-import Recognition from "./pages/features/Recognition";
+import SmartDisposal from "./pages/features/SmartDisposal";
+import IotIntegration from "./pages/features/IotIntegration";
 import Reward from "./pages/features/Reward";
-import Control from "./pages/features/Control";
-import Guide from "./pages/features/Guide";
+import OperationsHub from "./pages/features/OperationsHub";
 import Mosquitto from "./pages/Mosquitto";
 
 const theme = createTheme({
@@ -48,10 +48,13 @@ function App() {
           <Route path="/mosquitto" element={<Mosquitto />} />
 
           {/* 개별 기능 페이지 */}
-          <Route path="/features/recognition" element={<Recognition />} />
-          <Route path="/features/guide" element={<Guide />} />
+          <Route path="/features/smart-disposal" element={<SmartDisposal />} />
+          <Route path="/features/iot" element={<IotIntegration />} />
           <Route path="/features/reward" element={<Reward />} />
-          <Route path="/features/control" element={<Control />} />
+          <Route path="/features/operations" element={<OperationsHub />} />
+          <Route path="/features/recognition" element={<Navigate to="/features/smart-disposal" replace />} />
+          <Route path="/features/guide" element={<Navigate to="/features/smart-disposal" replace />} />
+          <Route path="/features/control" element={<Navigate to="/features/operations" replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

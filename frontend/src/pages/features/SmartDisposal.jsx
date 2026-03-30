@@ -1,21 +1,21 @@
 import { Box, Typography, Container, Stack, Button } from "@mui/material";
-import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
+import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { keyframes } from "@emotion/react";
 
-const shine = keyframes`
-  0% { background-position: -100% 0; }
-  100% { background-position: 200% 0; }
+const glow = keyframes`
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124,255,114,0.35); }
+  50% { box-shadow: 0 0 28px 6px rgba(124,255,114,0.15); }
 `;
 
 const bullets = [
-  "IoT로 배출이 확인되면 포인트를 적립합니다.",
-  "정책에 맞게 지급·정산 흐름을 유지합니다.",
+  "촬영한 폐기물을 AI가 종류까지 판별합니다.",
+  "결과에 맞는 가까운 수거함과 배출 팁을 보여 줍니다.",
 ];
 
-const Reward = () => {
+const SmartDisposal = () => {
   const navigate = useNavigate();
 
   return (
@@ -33,14 +33,13 @@ const Reward = () => {
       <Box
         sx={{
           position: "absolute",
-          top: "40%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 400,
-          height: 400,
+          top: "-20%",
+          right: "-15%",
+          width: 320,
+          height: 320,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,215,80,0.06) 0%, transparent 65%)",
-          filter: "blur(50px)",
+          background: "radial-gradient(circle, rgba(57,255,20,0.12) 0%, transparent 70%)",
+          filter: "blur(40px)",
           pointerEvents: "none",
         }}
       />
@@ -51,14 +50,13 @@ const Reward = () => {
           alignItems="center"
           textAlign="center"
           component={motion.div}
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
         >
           <motion.div
-            animate={{ rotateY: [0, 12, -12, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            style={{ perspective: 400 }}
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           >
             <Box
               sx={{
@@ -68,23 +66,22 @@ const Reward = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#E8D35C",
-                background: "linear-gradient(135deg, rgba(255,215,80,0.15), rgba(57,255,20,0.06))",
-                border: "1px solid rgba(255,215,80,0.28)",
-                backgroundSize: "200% 100%",
-                animation: `${shine} 4s linear infinite`,
+                color: "#7CFF72",
+                background: "linear-gradient(145deg, rgba(57,255,20,0.12), rgba(57,255,20,0.04))",
+                border: "1px solid rgba(57,255,20,0.22)",
+                animation: `${glow} 3s ease-in-out infinite`,
               }}
             >
-              <WorkspacePremiumRoundedIcon sx={{ fontSize: 44 }} />
+              <AutoAwesomeRoundedIcon sx={{ fontSize: 44 }} />
             </Box>
           </motion.div>
 
           <Stack spacing={0.75}>
             <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: "-0.02em" }}>
-              리워드
+              AI 촬영 · 분리배출 안내
             </Typography>
             <Typography sx={{ color: "#7CFF72", fontWeight: 600, fontSize: "0.95rem" }}>
-              검증 후 포인트 지급
+              Gemini · 지도 연동
             </Typography>
           </Stack>
 
@@ -96,7 +93,7 @@ const Reward = () => {
               maxWidth: 400,
             }}
           >
-            분리배출 실천이 곧 보상으로 이어지도록 설계했습니다.
+            한 흐름으로 촬영, 분석, 올바른 배출까지 이어 줍니다.
           </Typography>
 
           <Stack spacing={1.2} sx={{ width: "100%", maxWidth: 420, textAlign: "left" }}>
@@ -105,7 +102,7 @@ const Reward = () => {
                 key={text}
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.12 + i * 0.1, duration: 0.4 }}
+                transition={{ delay: 0.15 + i * 0.1, duration: 0.4 }}
               >
                 <Box
                   sx={{
@@ -113,7 +110,7 @@ const Reward = () => {
                     gap: 1.25,
                     alignItems: "flex-start",
                     pl: 1,
-                    borderLeft: "3px solid rgba(232,211,92,0.55)",
+                    borderLeft: "3px solid rgba(124,255,114,0.45)",
                     py: 0.25,
                   }}
                 >
@@ -148,4 +145,4 @@ const Reward = () => {
   );
 };
 
-export default Reward;
+export default SmartDisposal;
