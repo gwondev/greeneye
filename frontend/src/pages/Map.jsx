@@ -280,36 +280,36 @@ const Map = () => {
               </Box>
             </Typography>
           </Stack>
-          {heldType && (
-            <Typography sx={{ color: "#7CFF72", mt: 0.75, fontWeight: 700, fontSize: { xs: "0.75rem", sm: "0.875rem" }, lineHeight: 1.4 }}>
-              인식·선택 분류: {heldType} (Camera에서 확정 시 저장)
-            </Typography>
-          )}
         </Box>
-        <Stack spacing={1} sx={{ flexShrink: 0, width: { xs: "100%", sm: "auto" }, alignItems: { xs: "stretch", sm: "flex-end" } }}>
-          <Button
-            size="small"
-            variant="outlined"
-            fullWidth={false}
-            startIcon={<MenuBookRoundedIcon sx={{ fontSize: 18 }} />}
-            onClick={() => navigate("/map/guide")}
-            sx={{
-              color: "#7CFF72",
-              borderColor: "rgba(124,255,114,0.45)",
-              fontWeight: 700,
-              textTransform: "none",
-              borderRadius: 999,
-              py: { xs: 0.7, sm: 0.55 },
-              minHeight: 40,
-              fontSize: { xs: "0.74rem", sm: "0.82rem" },
-              bgcolor: "rgba(0,0,0,0.2)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            이용방법
-          </Button>
-        </Stack>
       </Stack>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<MenuBookRoundedIcon sx={{ fontSize: 16 }} />}
+        onClick={() => navigate("/map/guide")}
+        sx={{
+          position: "absolute",
+          right: { xs: 10, sm: 14 },
+          top: { xs: 12, sm: 16 },
+          zIndex: 1410,
+          color: "#7CFF72",
+          borderColor: "rgba(124,255,114,0.45)",
+          fontWeight: 700,
+          textTransform: "none",
+          borderRadius: 999,
+          py: { xs: 0.45, sm: 0.5 },
+          px: { xs: 1.05, sm: 1.2 },
+          minHeight: { xs: 30, sm: 34 },
+          minWidth: 0,
+          fontSize: { xs: "0.68rem", sm: "0.74rem" },
+          lineHeight: 1.1,
+          bgcolor: "rgba(0,0,0,0.28)",
+          whiteSpace: "nowrap",
+          "& .MuiButton-startIcon": { mr: 0.55, ml: 0, "& > *:first-of-type": { fontSize: { xs: 14, sm: 15 } } },
+        }}
+      >
+        이용방법
+      </Button>
       <Box
         role="button"
         aria-label="reward"
@@ -499,29 +499,71 @@ const Map = () => {
           </Typography>
         </Box>
         {heldTypeSummary && (
-          <Box
+          <Stack
+            direction="row"
+            spacing={{ xs: 0.7, sm: 0.9 }}
             sx={{
               position: "absolute",
               left: { xs: 10, sm: 14 },
               top: { xs: 10, sm: 14 },
               zIndex: 1200,
-              maxWidth: { xs: "72%", sm: 360 },
-              px: { xs: 1.25, sm: 1.5 },
-              py: { xs: 0.9, sm: 1.05 },
-              borderRadius: 2,
-              border: "1px solid rgba(124,255,114,0.36)",
-              bgcolor: "rgba(4,11,4,0.76)",
-              backdropFilter: "blur(6px)",
-              boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+              maxWidth: { xs: "60%", sm: 320 },
+              alignItems: "stretch",
             }}
           >
-            <Typography sx={{ color: "rgba(186,255,162,0.9)", fontWeight: 800, fontSize: { xs: "0.64rem", sm: "0.7rem" }, letterSpacing: "0.05em" }}>
-              HOLDING
-            </Typography>
-            <Typography sx={{ color: "#e8ffe1", fontWeight: 900, fontSize: { xs: "0.8rem", sm: "0.9rem" }, lineHeight: 1.35, mt: 0.15 }}>
-              들고있는 쓰레기: {heldTypeSummary}
-            </Typography>
-          </Box>
+            <Box
+              sx={{
+                flex: 1,
+                px: { xs: 1.25, sm: 1.5 },
+                py: { xs: 0.9, sm: 1.05 },
+                borderRadius: 2,
+                border: "1px solid rgba(124,255,114,0.36)",
+                bgcolor: "rgba(4,11,4,0.76)",
+                backdropFilter: "blur(6px)",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+                minWidth: 0,
+              }}
+            >
+              <Typography sx={{ color: "rgba(186,255,162,0.9)", fontWeight: 800, fontSize: { xs: "0.64rem", sm: "0.7rem" }, letterSpacing: "0.05em" }}>
+                HOLDING
+              </Typography>
+              <Typography sx={{ color: "#e8ffe1", fontWeight: 900, fontSize: { xs: "0.8rem", sm: "0.9rem" }, lineHeight: 1.35, mt: 0.15 }}>
+                들고있는 쓰레기: {heldTypeSummary}
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              onClick={() => {
+                sessionStorage.removeItem(HELD_KEY);
+                setHeldType("");
+              }}
+              aria-label="holding-reset"
+              sx={{
+                minWidth: { xs: 64, sm: 72 },
+                width: { xs: 64, sm: 72 },
+                height: "auto",
+                borderRadius: 2,
+                border: "1px solid rgba(124,255,114,0.36)",
+                bgcolor: "rgba(4,11,4,0.76)",
+                color: "#b8ff9e",
+                backdropFilter: "blur(6px)",
+                boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+                fontWeight: 900,
+                fontSize: { xs: "0.7rem", sm: "0.74rem" },
+                lineHeight: 1.1,
+                px: { xs: 0.6, sm: 0.75 },
+                py: { xs: 0.9, sm: 1.05 },
+                textTransform: "none",
+                "&:hover": {
+                  borderColor: "rgba(124,255,114,0.55)",
+                  color: "#e8ffe1",
+                  bgcolor: "rgba(8,18,8,0.9)",
+                },
+              }}
+            >
+              초기화
+            </Button>
+          </Stack>
         )}
         <Suspense
           fallback={
