@@ -43,6 +43,9 @@ static const unsigned long ULTRA_LOG_INTERVAL_MS = 10000UL;  // 10s
 
 static esp_mqtt_client_handle_t s_mqtt = nullptr;
 static volatile bool s_mqtt_connected = false;
+/** Wi-Fi 순간 플랩으로 MQTT를 매번 끊었다 붙이지 않도록, 끊김이 이 시간 이상 지속될 때만 재연결 */
+static const unsigned long WIFI_DOWN_DEBOUNCE_MS = 500;
+static unsigned long s_wifiDownSince = 0;
 
 char pendingNickname[48] = "";
 enum { MODE_DEFAULT, MODE_READY_WAIT, MODE_CHECK_SHOW, MODE_FULL } deviceMode = MODE_DEFAULT;
@@ -365,11 +368,22 @@ void setup() {
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
+    if (s_wifiDownSince == 0) {
+      s_wifiDownSince = millis();
+    }
+    if (millis() - s_wifiDownSince < WIFI_DOWN_DEBOUNCE_MS) {
+      delay(20);
+      return;
+    }
     s_mqtt_connected = false;
+    Serial.println("[NET] WiFi down — reconnect MQTT after WiFi restore");
     while (!connectWifiFromLists()) {
       delay(3000);
     }
+    s_wifiDownSince = 0;
     startMqttClient();
+  } else {
+    s_wifiDownSince = 0;
   }
 
   updateUltrasonicSample();
