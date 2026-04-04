@@ -14,6 +14,7 @@ import Reward from "./pages/features/Reward";
 import OperationsHub from "./pages/features/OperationsHub";
 import Mosquitto from "./pages/Mosquitto";
 import RewardMarket from "./pages/RewardMarket";
+import Test from "./pages/Test";
 import { isAuthenticated, getUser } from "./services/auth";
 
 const theme = createTheme({
@@ -43,6 +44,7 @@ function App() {
           {/* 시작 및 계정 설정 */}
           <Route path="/" element={<Root />} />
           <Route path="/nickname" element={<Nickname />} />
+          <Route path="/test" element={<Test />} />
 
           {/* 메인 서비스 (지도) */}
           <Route path="/map" element={<ProtectedRoute><Map /></ProtectedRoute>} />
