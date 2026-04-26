@@ -6,6 +6,8 @@ import DB from "./pages/DB";
 import Nickname from "./pages/Nickname";
 import Map from "./pages/Map";
 import MapGuide from "./pages/MapGuide";
+import RecyclingGuide from "./pages/RecyclingGuide";
+import OverviewPage from "./pages/OverviewPage";
 import Camera from "./pages/Camera";
 import Input from "./pages/Input";
 import SmartDisposal from "./pages/features/SmartDisposal";
@@ -15,6 +17,8 @@ import OperationsHub from "./pages/features/OperationsHub";
 import Mosquitto from "./pages/Mosquitto";
 import RewardMarket from "./pages/RewardMarket";
 import Test from "./pages/Test";
+import TeamIntro from "./pages/TeamIntro";
+import ProjectIntro from "./pages/ProjectIntro";
 import { isAuthenticated, getUser } from "./services/auth";
 
 const theme = createTheme({
@@ -45,10 +49,14 @@ function App() {
           <Route path="/" element={<Root />} />
           <Route path="/nickname" element={<Nickname />} />
           <Route path="/test" element={<Test />} />
+          <Route path="/intro/team" element={<ProtectedRoute><TeamIntro /></ProtectedRoute>} />
+          <Route path="/intro/project" element={<ProtectedRoute><ProjectIntro /></ProtectedRoute>} />
 
           {/* 메인 서비스 (지도) */}
           <Route path="/map" element={<ProtectedRoute><Map /></ProtectedRoute>} />
+          <Route path="/map/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
           <Route path="/map/guide" element={<ProtectedRoute><MapGuide /></ProtectedRoute>} />
+          <Route path="/map/recycling-guide" element={<ProtectedRoute><RecyclingGuide /></ProtectedRoute>} />
           <Route path="/camera" element={<ProtectedRoute><Camera /></ProtectedRoute>} />
           <Route path="/input" element={<ProtectedRoute><Input /></ProtectedRoute>} />
           <Route path="/reward_market" element={<ProtectedRoute><RewardMarket /></ProtectedRoute>} />

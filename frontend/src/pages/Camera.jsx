@@ -115,7 +115,7 @@ const Camera = () => {
               모바일은 촬영, PC는 파일 선택 후 분석하세요.
             </Box>
             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
-              모바일은 카메라, PC는 파일 선택. AI로 분석하고, 아래에서 직접 고를 수도 있습니다.
+              쓰레기를 AI를 통해 분석하고 분류합니다.
             </Box>
           </Typography>
 
@@ -232,7 +232,7 @@ const Camera = () => {
               ))}
             </Stack>
             <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.45)", mt: 1.5, display: "block", textAlign: "center" }}>
-              선택 후 「지도로」하면 Map에서 READY 시 전달됩니다.
+              선택 후 「지도로」해주세요.
             </Typography>
           </Box>
 

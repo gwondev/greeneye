@@ -6,7 +6,7 @@ import { apiFetch } from "../services/api";
 import { keyframes } from "@emotion/react";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import PhotoCameraRoundedIcon from "@mui/icons-material/PhotoCameraRounded";
-import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
+import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
 
 const MapView = lazy(() => import("./MapView.jsx"));
@@ -567,20 +567,48 @@ const Map = () => {
           direction="row"
           spacing={{ xs: 1.4, sm: 1.2 }}
           alignItems="center"
-          sx={{ width: "100%", justifyContent: "center", px: { xs: 0.8, sm: 0.4 }, mt: { xs: 0.4, sm: 0.2 }, mb: { xs: 0.35, sm: 0.2 } }}
+          sx={{ width: "100%", justifyContent: "center", px: { xs: 0.8, sm: 0.4 }, mt: { xs: 0.4, sm: 0.2 }, mb: { xs: 0.2, sm: 0.1 } }}
         >
           <Button
             variant="outlined"
             size="large"
-            startIcon={<MenuBookRoundedIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />}
-            onClick={() => navigate("/map/guide")}
+            startIcon={<InfoRoundedIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />}
+            onClick={() => navigate("/map/overview")}
             sx={{
               px: { xs: 2, sm: 3.2 },
               py: { xs: 1.5, sm: 1.75 },
-              width: "50%",
+              flex: 1,
               minWidth: 0,
               borderRadius: 999,
-              fontSize: { xs: "0.9rem", sm: "1.02rem" },
+              fontSize: "clamp(0.72rem, 1.7vw, 1.02rem)",
+              fontWeight: 900,
+              minHeight: { xs: 48, sm: 56 },
+              letterSpacing: "-0.02em",
+              color: "rgba(240,240,240,0.95)",
+              borderColor: "rgba(255,255,255,0.2)",
+              bgcolor: "rgba(14,14,14,0.88)",
+              backdropFilter: "blur(2px)",
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "rgba(255,255,255,0.35)",
+                bgcolor: "rgba(24,24,24,0.94)",
+              },
+            }}
+          >
+            서비스개요
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            startIcon={<PhotoCameraRoundedIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />}
+            onClick={() => navigate("/camera")}
+            sx={{
+              px: { xs: 2, sm: 3.2 },
+              py: { xs: 1.5, sm: 1.75 },
+              flex: 1,
+              minWidth: 0,
+              borderRadius: 999,
+              fontSize: "clamp(0.72rem, 1.7vw, 1.02rem)",
               fontWeight: 900,
               minHeight: { xs: 48, sm: 56 },
               letterSpacing: "-0.02em",
@@ -591,7 +619,6 @@ const Map = () => {
               position: "relative",
               overflow: "hidden",
               animation: `${ctaPulse} 2.1s ease-in-out infinite`,
-              textTransform: "none",
               "&::after": {
                 content: '""',
                 position: "absolute",
@@ -602,6 +629,7 @@ const Map = () => {
                 transform: "translateX(-120%)",
                 animation: `${ctaShine} 2.6s ease-in-out infinite`,
               },
+              textTransform: "none",
               "&:hover": {
                 borderColor: "rgba(124,255,114,0.65)",
                 bgcolor: "rgba(124,255,114,0.12)",
@@ -610,51 +638,12 @@ const Map = () => {
               },
             }}
           >
-            이용방법
-          </Button>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<PhotoCameraRoundedIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />}
-            onClick={() => navigate("/camera")}
-            sx={{
-              px: { xs: 2, sm: 3.2 },
-              py: { xs: 1.5, sm: 1.75 },
-              width: "50%",
-              minWidth: 0,
-              borderRadius: 999,
-              fontSize: { xs: "0.9rem", sm: "1.02rem" },
-              fontWeight: 900,
-              minHeight: { xs: 48, sm: 56 },
-              letterSpacing: "-0.02em",
-              color: "#0a0f0a",
-              bgcolor: "#7CFF72",
-              backgroundImage: "linear-gradient(120deg, #7CFF72 0%, #9dff92 50%, #7CFF72 100%)",
-              backgroundSize: "180% 100%",
-              position: "relative",
-              overflow: "hidden",
-              animation: `${ctaPulse} 2.1s ease-in-out infinite`,
-              textTransform: "none",
-              "&::after": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                width: "35%",
-                background: "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.38), rgba(255,255,255,0))",
-                transform: "translateX(-120%)",
-                animation: `${ctaShine} 2.6s ease-in-out infinite`,
-              },
-              "&:hover": {
-                bgcolor: "#9dff92",
-                transform: "translateY(-1px) scale(1.02)",
-                boxShadow: "0 18px 54px rgba(124,255,114,0.5)",
-              },
-            }}
-          >
-            쓰레기 촬영
+            쓰레기촬영
           </Button>
         </Stack>
+        <Typography sx={{ fontSize: "clamp(0.58rem, 1.4vw, 0.7rem)", color: "rgba(255,255,255,0.4)", textAlign: "center", mt: 0.2 }}>
+          Chousn University · 2026
+        </Typography>
         {loading && (
           <Typography sx={{ color: "rgba(255,255,255,0.65)" }} variant="body2">
             불러오는 중…

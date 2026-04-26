@@ -1,19 +1,9 @@
-import { useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
-import { Button, Typography, Box } from "@mui/material";
-import "leaflet/dist/leaflet.css";
-import "./map-popup.css";
+import { useEffect, useRef } from "react";
+import { Box } from "@mui/material";
 import { moduleTypeLabel } from "../constants/wasteLabels";
 
-function FlyTo({ center, zoom }) {
-  const map = useMap();
-  useEffect(() => {
-    if (center?.[0] != null && center?.[1] != null) {
-      map.flyTo(center, zoom, { duration: 0.6 });
-    }
-  }, [center, zoom, map]);
-  return null;
-}
+const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || import.meta.env.KAKAO_API || "";
+const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
 
 /**
  * @param {[[number,number]|null]} props.userPos
@@ -24,6 +14,163 @@ function FlyTo({ center, zoom }) {
 export default function MapView({ userPos, modules, onReady, hasHeldWaste = false }) {
   const fallback = [35.1462, 126.9229];
   const center = userPos && userPos[0] != null && userPos[1] != null ? userPos : fallback;
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef([]);
+  const overlaysRef = useRef([]);
+  const infoRef = useRef(null);
+
+  useEffect(() => {
+    if (!KAKAO_APP_KEY) return;
+    if (window.kakao?.maps) return;
+
+    const existing = document.querySelector("script[data-kakao-map='true']");
+    if (existing) return;
+
+    const script = document.createElement("script");
+    script.src = KAKAO_SDK_URL;
+    script.async = true;
+    script.dataset.kakaoMap = "true";
+    document.head.appendChild(script);
+
+    return () => {
+      // script 제거는 하지 않고 재사용한다.
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!KAKAO_APP_KEY || !containerRef.current || !window.kakao?.maps) return;
+
+    window.kakao.maps.load(() => {
+      if (mapRef.current) return;
+
+      const map = new window.kakao.maps.Map(containerRef.current, {
+        center: new window.kakao.maps.LatLng(center[0], center[1]),
+        level: 3,
+      });
+      mapRef.current = map;
+      infoRef.current = new window.kakao.maps.InfoWindow({ zIndex: 3 });
+    });
+  }, [center]);
+
+  useEffect(() => {
+    if (!mapRef.current || !window.kakao?.maps) return;
+    mapRef.current.panTo(new window.kakao.maps.LatLng(center[0], center[1]));
+  }, [center]);
+
+  useEffect(() => {
+    if (!mapRef.current || !window.kakao?.maps) return;
+
+    markersRef.current.forEach((m) => m.setMap(null));
+    overlaysRef.current.forEach((o) => o.setMap(null));
+    markersRef.current = [];
+    overlaysRef.current = [];
+
+    const map = mapRef.current;
+    const infoWindow = infoRef.current;
+
+    if (userPos && userPos[0] != null && userPos[1] != null) {
+      const userMarker = new window.kakao.maps.Marker({
+        map,
+        position: new window.kakao.maps.LatLng(userPos[0], userPos[1]),
+        title: "내 위치",
+      });
+      markersRef.current.push(userMarker);
+    }
+
+    modules.forEach((m) => {
+      if (m.lat == null || m.lon == null) return;
+
+      const serial = (m.serialNumber && String(m.serialNumber).trim()) || "—";
+      const isFull = String(m.status || "").toUpperCase() === "FULL";
+      const typeTitle = moduleTypeLabel(m.type);
+      const position = new window.kakao.maps.LatLng(m.lat, m.lon);
+
+      const marker = new window.kakao.maps.Marker({
+        map,
+        position,
+        title: `${typeTitle} (${serial})`,
+      });
+      markersRef.current.push(marker);
+
+      const badge = document.createElement("div");
+      badge.style.padding = "2px 6px";
+      badge.style.borderRadius = "999px";
+      badge.style.border = "1px solid rgba(124,255,114,0.45)";
+      badge.style.background = "rgba(0,0,0,0.8)";
+      badge.style.color = "#7CFF72";
+      badge.style.fontWeight = "800";
+      badge.style.fontSize = "11px";
+      badge.style.whiteSpace = "nowrap";
+      badge.textContent = typeTitle;
+
+      const labelOverlay = new window.kakao.maps.CustomOverlay({
+        position,
+        content: badge,
+        yAnchor: 2.6,
+      });
+      labelOverlay.setMap(map);
+      overlaysRef.current.push(labelOverlay);
+
+      window.kakao.maps.event.addListener(marker, "click", () => {
+        const info = document.createElement("div");
+        info.style.minWidth = "180px";
+        info.style.maxWidth = "240px";
+        info.style.padding = "8px 10px";
+        info.style.background = "#0e150e";
+        info.style.border = "1px solid rgba(124,255,114,0.35)";
+        info.style.borderRadius = "10px";
+        info.style.color = "#e8ffe8";
+        info.style.fontSize = "12px";
+        info.style.lineHeight = "1.45";
+        info.innerHTML = `
+          <div style="font-weight:800;color:#7CFF72;margin-bottom:4px;">${typeTitle}</div>
+          <div style="opacity:0.88;">${serial} · 상태 ${m.status || "—"}</div>
+          ${m.totalDisposalCount != null ? `<div style="opacity:0.72;">누적 배출 ${m.totalDisposalCount}회</div>` : ""}
+          <div style="margin-top:6px;opacity:0.88;">클릭 시 버리기 동작</div>
+        `;
+        infoWindow.setContent(info);
+        infoWindow.open(map, marker);
+
+        if (isFull) {
+          alert("해당 모듈은 FULL 상태라 선택할 수 없습니다.");
+          return;
+        }
+        if (!hasHeldWaste) {
+          alert("먼저 쓰레기를 촬영해 주세요.");
+          return;
+        }
+        onReady(m.serialNumber);
+      });
+    });
+
+    return () => {
+      markersRef.current.forEach((m) => m.setMap(null));
+      overlaysRef.current.forEach((o) => o.setMap(null));
+      markersRef.current = [];
+      overlaysRef.current = [];
+    };
+  }, [modules, userPos, hasHeldWaste, onReady]);
+
+  if (!KAKAO_APP_KEY) {
+    return (
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          minHeight: 280,
+          display: "grid",
+          placeItems: "center",
+          color: "rgba(255,255,255,0.75)",
+          bgcolor: "#0a0f0a",
+          px: 2,
+          textAlign: "center",
+        }}
+      >
+        KAKAO_API 키가 없습니다. 프론트 환경변수에 설정해 주세요.
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -31,111 +178,9 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
         position: "absolute",
         inset: 0,
         minHeight: 280,
-        "& .leaflet-container": {
-          height: "100% !important",
-          width: "100% !important",
-          background: "#0a0f0a",
-        },
       }}
     >
-      <MapContainer
-        center={center}
-        zoom={16}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <FlyTo center={center} zoom={16} />
-        {userPos && userPos[0] != null && userPos[1] != null && (
-          <CircleMarker
-            center={userPos}
-            radius={12}
-            pathOptions={{
-              color: "#4A9EFF",
-              fillColor: "#4A9EFF",
-              fillOpacity: 0.45,
-              weight: 2,
-            }}
-          >
-            <Popup className="greeneye-popup">
-              <Typography variant="body2" fontWeight={700} sx={{ color: "#e8ffe8" }}>
-                내 위치
-              </Typography>
-            </Popup>
-          </CircleMarker>
-        )}
-        {modules.map((m) => {
-          if (m.lat == null || m.lon == null) return null;
-          const isFull = String(m.status || "").toUpperCase() === "FULL";
-          const typeTitle = moduleTypeLabel(m.type);
-          const serial = (m.serialNumber && String(m.serialNumber).trim()) || "—";
-          return (
-            <CircleMarker
-              key={m.id}
-              center={[m.lat, m.lon]}
-              radius={11}
-              pathOptions={{
-                color: isFull ? "#ff6b6b" : "#7CFF72",
-                fillColor: isFull ? "#3a1616" : "#1a2e1a",
-                fillOpacity: 0.85,
-                weight: 2,
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -6]} opacity={1} permanent>
-                <span style={{ color: "#7CFF72", fontWeight: 800, fontSize: 11, textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>{typeTitle}</span>
-              </Tooltip>
-              <Popup className="greeneye-popup">
-                <Box sx={{ minWidth: { xs: 200, sm: 220 }, maxWidth: 280 }}>
-                  <Typography sx={{ color: "#7CFF72", fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.3, mb: 0.65 }}>
-                    {typeTitle}
-                  </Typography>
-                  <Typography sx={{ color: "rgba(232,255,232,0.72)", fontSize: "0.62rem", mb: 0.45, lineHeight: 1.45 }}>
-                    {serial}
-                    <Box component="span" sx={{ color: "rgba(232,255,232,0.5)" }}>
-                      {" "}
-                      · 상태{" "}
-                    </Box>
-                    <Box component="span" sx={{ color: "rgba(232,255,232,0.78)" }}>{m.status || "—"}</Box>
-                    {m.totalDisposalCount != null ? (
-                      <>
-                        <Box component="span" sx={{ color: "rgba(232,255,232,0.5)" }}> · </Box>
-                        누적 배출 {m.totalDisposalCount}회
-                      </>
-                    ) : null}
-                  </Typography>
-                  {!hasHeldWaste && (
-                    <Typography sx={{ color: "rgba(255,214,128,0.95)", fontSize: "0.72rem", mb: 1, fontWeight: 700 }}>
-                      먼저 쓰레기를 촬영해 주세요.
-                    </Typography>
-                  )}
-                  <Button
-                    fullWidth
-                    size="small"
-                    variant="contained"
-                    disabled={isFull || !hasHeldWaste}
-                    onClick={() => onReady(m.serialNumber)}
-                    sx={{
-                      bgcolor: isFull || !hasHeldWaste ? "rgba(255,255,255,0.2)" : "#7CFF72",
-                      color: isFull || !hasHeldWaste ? "rgba(255,255,255,0.75)" : "#050805",
-                      fontWeight: 900,
-                      textTransform: "none",
-                      borderRadius: 2,
-                      py: 0.75,
-                      boxShadow: isFull || !hasHeldWaste ? "none" : "0 4px 16px rgba(124,255,114,0.25)",
-                      "&:hover": { bgcolor: isFull || !hasHeldWaste ? "rgba(255,255,255,0.2)" : "#9dff92" },
-                    }}
-                  >
-                    {isFull ? "가득참(FULL)" : !hasHeldWaste ? "촬영 필요" : "버리기"}
-                  </Button>
-                </Box>
-              </Popup>
-            </CircleMarker>
-          );
-        })}
-      </MapContainer>
+      <Box ref={containerRef} sx={{ height: "100%", width: "100%", bgcolor: "#0a0f0a" }} />
     </Box>
   );
 }
