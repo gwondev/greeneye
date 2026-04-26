@@ -4,6 +4,12 @@ import { moduleTypeLabel } from "../constants/wasteLabels";
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || import.meta.env.KAKAO_API || "";
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
+const TYPE_SYMBOLS = {
+  PET: "🧴",
+  CAN: "🥫",
+  GENERAL: "🗑️",
+  HAZARD: "☣️",
+};
 
 /**
  * @param {[[number,number]|null]} props.userPos
@@ -114,7 +120,9 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
 
       const serial = (m.serialNumber && String(m.serialNumber).trim()) || "—";
       const isFull = String(m.status || "").toUpperCase() === "FULL";
+      const typeKey = String(m.type || "GENERAL").toUpperCase();
       const typeTitle = moduleTypeLabel(m.type);
+      const typeSymbol = TYPE_SYMBOLS[typeKey] || "🗑️";
       const position = new window.kakao.maps.LatLng(m.lat, m.lon);
 
       const marker = new window.kakao.maps.Marker({
@@ -133,7 +141,7 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
       badge.style.fontWeight = "800";
       badge.style.fontSize = "11px";
       badge.style.whiteSpace = "nowrap";
-      badge.textContent = typeTitle;
+      badge.textContent = `${typeSymbol} ${typeTitle}`;
 
       const labelOverlay = new window.kakao.maps.CustomOverlay({
         position,
@@ -154,24 +162,56 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
         info.style.color = "#e8ffe8";
         info.style.fontSize = "12px";
         info.style.lineHeight = "1.45";
-        info.innerHTML = `
-          <div style="font-weight:800;color:#7CFF72;margin-bottom:4px;">${typeTitle}</div>
-          <div style="opacity:0.88;">${serial} · 상태 ${m.status || "—"}</div>
-          ${m.totalDisposalCount != null ? `<div style="opacity:0.72;">누적 배출 ${m.totalDisposalCount}회</div>` : ""}
-          <div style="margin-top:6px;opacity:0.88;">클릭 시 버리기 동작</div>
-        `;
+
+        const title = document.createElement("div");
+        title.style.fontWeight = "800";
+        title.style.color = "#7CFF72";
+        title.style.marginBottom = "4px";
+        title.textContent = `${typeSymbol} ${typeTitle}`;
+
+        const status = document.createElement("div");
+        status.style.opacity = "0.88";
+        status.textContent = `${serial} · 상태 ${m.status || "—"}`;
+
+        info.appendChild(title);
+        info.appendChild(status);
+
+        if (m.totalDisposalCount != null) {
+          const total = document.createElement("div");
+          total.style.opacity = "0.72";
+          total.textContent = `누적 배출 ${m.totalDisposalCount}회`;
+          info.appendChild(total);
+        }
+
+        if (!hasHeldWaste) {
+          const warn = document.createElement("div");
+          warn.style.marginTop = "6px";
+          warn.style.color = "rgba(255,214,128,0.95)";
+          warn.style.fontWeight = "700";
+          warn.textContent = "먼저 쓰레기를 촬영해 주세요.";
+          info.appendChild(warn);
+        }
+
+        const action = document.createElement("button");
+        action.type = "button";
+        action.style.marginTop = "8px";
+        action.style.width = "100%";
+        action.style.border = "none";
+        action.style.borderRadius = "8px";
+        action.style.padding = "8px 10px";
+        action.style.fontWeight = "900";
+        action.style.cursor = isFull || !hasHeldWaste ? "not-allowed" : "pointer";
+        action.style.background = isFull || !hasHeldWaste ? "rgba(255,255,255,0.2)" : "#7CFF72";
+        action.style.color = isFull || !hasHeldWaste ? "rgba(255,255,255,0.78)" : "#050805";
+        action.disabled = isFull || !hasHeldWaste;
+        action.textContent = isFull ? "가득참(FULL)" : !hasHeldWaste ? "촬영 필요" : "버리기";
+        action.addEventListener("click", () => {
+          onReady(m.serialNumber);
+        });
+        info.appendChild(action);
+
         infoWindow.setContent(info);
         infoWindow.open(map, marker);
-
-        if (isFull) {
-          alert("해당 모듈은 FULL 상태라 선택할 수 없습니다.");
-          return;
-        }
-        if (!hasHeldWaste) {
-          alert("먼저 쓰레기를 촬영해 주세요.");
-          return;
-        }
-        onReady(m.serialNumber);
       });
     });
 
