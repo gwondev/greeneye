@@ -173,6 +173,18 @@ const Map = () => {
     );
   };
 
+  const focusMyLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos([pos.coords.latitude, pos.coords.longitude]);
+        setCenterTrigger((prev) => prev + 1);
+        setGeoMessage("");
+      },
+      () => setGeoMessage("현재 위치를 가져오지 못했습니다. 권한을 확인해 주세요."),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleReady = async (serialNumber) => {
     const h = (heldType || sessionStorage.getItem(HELD_KEY) || "").trim().toUpperCase();
     if (!h) {
@@ -533,37 +545,70 @@ const Map = () => {
         >
           <MapView userPos={userPos} modules={modulesForMap} onReady={handleReady} hasHeldWaste={hasHeldWaste} centerTrigger={centerTrigger} />
         </Suspense>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => window.location.reload()}
+        <Stack
+          spacing={0.45}
           sx={{
             position: "absolute",
             right: { xs: 6, sm: 8 },
             bottom: { xs: 6, sm: 8 },
             zIndex: 1200,
-            px: { xs: 0.75, sm: 1 },
-            py: { xs: 0.2, sm: 0.25 },
-            minWidth: 0,
-            minHeight: 0,
-            borderRadius: 0.75,
-            bgcolor: "rgba(0,0,0,0.82)",
-            borderColor: "rgba(255,255,255,0.12)",
-            color: "rgba(255,255,255,0.82)",
-            fontSize: { xs: "0.45rem", sm: "0.5rem" },
-            lineHeight: 1.25,
-            fontWeight: 600,
-            textTransform: "none",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
-            "&:hover": {
-              borderColor: "rgba(124,255,114,0.45)",
-              color: "#b8ff9e",
-              bgcolor: "rgba(0,0,0,0.9)",
-            },
           }}
         >
-          위치·모듈 새로고침
-        </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={focusMyLocation}
+            sx={{
+              px: { xs: 0.75, sm: 1 },
+              py: { xs: 0.2, sm: 0.25 },
+              minWidth: 0,
+              minHeight: 0,
+              borderRadius: 0.75,
+              bgcolor: "rgba(0,0,0,0.82)",
+              borderColor: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.82)",
+              fontSize: { xs: "0.45rem", sm: "0.5rem" },
+              lineHeight: 1.25,
+              fontWeight: 600,
+              textTransform: "none",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+              "&:hover": {
+                borderColor: "rgba(255,84,84,0.6)",
+                color: "#ffb0b0",
+                bgcolor: "rgba(0,0,0,0.9)",
+              },
+            }}
+          >
+            내위치로 이동
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => window.location.reload()}
+            sx={{
+              px: { xs: 0.75, sm: 1 },
+              py: { xs: 0.2, sm: 0.25 },
+              minWidth: 0,
+              minHeight: 0,
+              borderRadius: 0.75,
+              bgcolor: "rgba(0,0,0,0.82)",
+              borderColor: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.82)",
+              fontSize: { xs: "0.45rem", sm: "0.5rem" },
+              lineHeight: 1.25,
+              fontWeight: 600,
+              textTransform: "none",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+              "&:hover": {
+                borderColor: "rgba(124,255,114,0.45)",
+                color: "#b8ff9e",
+                bgcolor: "rgba(0,0,0,0.9)",
+              },
+            }}
+          >
+            위치·모듈 새로고침
+          </Button>
+        </Stack>
       </Paper>
 
       <Box

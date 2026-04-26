@@ -249,9 +249,16 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
 
     const dotWrap = document.createElement("div");
     dotWrap.style.position = "relative";
-    dotWrap.style.width = "22px";
-    dotWrap.style.height = "22px";
+    dotWrap.style.width = "64px";
+    dotWrap.style.height = "30px";
     dotWrap.style.transform = "translate(-11px, -11px)";
+
+    const pulseWrap = document.createElement("div");
+    pulseWrap.style.position = "absolute";
+    pulseWrap.style.left = "11px";
+    pulseWrap.style.top = "11px";
+    pulseWrap.style.width = "0";
+    pulseWrap.style.height = "0";
 
     const pulse = document.createElement("div");
     pulse.style.position = "absolute";
@@ -276,8 +283,24 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
     core.style.boxShadow = "0 0 10px rgba(255,74,74,0.85)";
     core.style.transform = "translate(-50%, -50%)";
 
-    dotWrap.appendChild(pulse);
-    dotWrap.appendChild(core);
+    pulseWrap.appendChild(pulse);
+    pulseWrap.appendChild(core);
+    dotWrap.appendChild(pulseWrap);
+
+    const userText = document.createElement("div");
+    userText.textContent = "내위치";
+    userText.style.position = "absolute";
+    userText.style.left = "24px";
+    userText.style.top = "4px";
+    userText.style.padding = "1px 6px";
+    userText.style.borderRadius = "999px";
+    userText.style.background = "rgba(0,0,0,0.76)";
+    userText.style.border = "1px solid rgba(255,90,90,0.5)";
+    userText.style.color = "#ff7c7c";
+    userText.style.fontSize = "10px";
+    userText.style.fontWeight = "700";
+    userText.style.whiteSpace = "nowrap";
+    dotWrap.appendChild(userText);
 
     const overlay = new window.kakao.maps.CustomOverlay({
       position: new window.kakao.maps.LatLng(userPos[0], userPos[1]),
