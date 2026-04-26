@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { moduleTypeLabel } from "../constants/wasteLabels";
 
@@ -19,47 +19,56 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
   const markersRef = useRef([]);
   const overlaysRef = useRef([]);
   const infoRef = useRef(null);
+  const [sdkReady, setSdkReady] = useState(false);
 
   useEffect(() => {
-    if (!KAKAO_APP_KEY) return;
-    if (window.kakao?.maps) return;
+    if (!KAKAO_APP_KEY) return undefined;
+
+    const markReady = () => {
+      if (!window.kakao?.maps) return;
+      window.kakao.maps.load(() => setSdkReady(true));
+    };
+
+    if (window.kakao?.maps) {
+      markReady();
+      return undefined;
+    }
 
     const existing = document.querySelector("script[data-kakao-map='true']");
-    if (existing) return;
+    if (existing) {
+      existing.addEventListener("load", markReady);
+      return () => existing.removeEventListener("load", markReady);
+    }
 
     const script = document.createElement("script");
     script.src = KAKAO_SDK_URL;
     script.async = true;
     script.dataset.kakaoMap = "true";
+    script.addEventListener("load", markReady);
     document.head.appendChild(script);
-
-    return () => {
-      // script 제거는 하지 않고 재사용한다.
-    };
+    return () => script.removeEventListener("load", markReady);
   }, []);
 
   useEffect(() => {
-    if (!KAKAO_APP_KEY || !containerRef.current || !window.kakao?.maps) return;
+    if (!KAKAO_APP_KEY || !sdkReady || !containerRef.current || !window.kakao?.maps) return;
 
-    window.kakao.maps.load(() => {
-      if (mapRef.current) return;
+    if (mapRef.current) return;
 
-      const map = new window.kakao.maps.Map(containerRef.current, {
-        center: new window.kakao.maps.LatLng(center[0], center[1]),
-        level: 3,
-      });
-      mapRef.current = map;
-      infoRef.current = new window.kakao.maps.InfoWindow({ zIndex: 3 });
+    const map = new window.kakao.maps.Map(containerRef.current, {
+      center: new window.kakao.maps.LatLng(center[0], center[1]),
+      level: 3,
     });
-  }, [center]);
+    mapRef.current = map;
+    infoRef.current = new window.kakao.maps.InfoWindow({ zIndex: 3 });
+  }, [center, sdkReady]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.kakao?.maps) return;
+    if (!sdkReady || !mapRef.current || !window.kakao?.maps) return;
     mapRef.current.panTo(new window.kakao.maps.LatLng(center[0], center[1]));
   }, [center]);
 
   useEffect(() => {
-    if (!mapRef.current || !window.kakao?.maps) return;
+    if (!sdkReady || !mapRef.current || !window.kakao?.maps) return;
 
     markersRef.current.forEach((m) => m.setMap(null));
     overlaysRef.current.forEach((o) => o.setMap(null));
@@ -168,6 +177,26 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
         }}
       >
         KAKAO_API 키가 없습니다. 프론트 환경변수에 설정해 주세요.
+      </Box>
+    );
+  }
+
+  if (!sdkReady) {
+    return (
+      <Box
+        sx={{
+          position: "absolute",
+          inset: 0,
+          minHeight: 280,
+          display: "grid",
+          placeItems: "center",
+          color: "rgba(255,255,255,0.75)",
+          bgcolor: "#0a0f0a",
+          px: 2,
+          textAlign: "center",
+        }}
+      >
+        카카오 지도 로딩 중...
       </Box>
     );
   }
