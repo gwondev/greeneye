@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ['VITE_', 'KAKAO_'],
   server: {
     // VITE_API_BASE_URL 미설정 시에만 사용. 설정 시 fetch 가 절대 URL 로 가므로 프록시 안 탐.
     proxy: {

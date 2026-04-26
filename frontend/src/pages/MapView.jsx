@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { moduleTypeLabel } from "../constants/wasteLabels";
 
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || "";
+const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || import.meta.env.KAKAO_API || "";
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
 
 /**
@@ -176,7 +176,7 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
           textAlign: "center",
         }}
       >
-        KAKAO_API 키가 없습니다. 프론트 환경변수에 설정해 주세요.
+        카카오 지도 키가 없습니다. VITE_KAKAO_API 또는 KAKAO_API를 설정해 주세요.
       </Box>
     );
   }
