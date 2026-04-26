@@ -372,7 +372,7 @@ const Map = () => {
             "& .MuiAlert-message": { width: "100%" },
           }}
         >
-          선택 분류({heldType})에 맞는 통만 표시 중입니다.
+          선택 분류({heldType})에 맞는 통만 표시 중입니다
         </Alert>
       )}
 
