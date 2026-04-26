@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Box } from "@mui/material";
 import { moduleTypeLabel } from "../constants/wasteLabels";
 
-const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || import.meta.env.KAKAO_API || "";
+const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || "";
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
 
 /**
