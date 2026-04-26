@@ -20,13 +20,23 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
   const overlaysRef = useRef([]);
   const infoRef = useRef(null);
   const [sdkReady, setSdkReady] = useState(false);
+  const [debugMessage, setDebugMessage] = useState("");
 
   useEffect(() => {
     if (!KAKAO_APP_KEY) return undefined;
 
     const markReady = () => {
       if (!window.kakao?.maps) return;
-      window.kakao.maps.load(() => setSdkReady(true));
+      window.kakao.maps.load(() => {
+        setSdkReady(true);
+        setDebugMessage("");
+      });
+    };
+    const markError = (reason) => {
+      setDebugMessage(
+        `[KAKAO MAP ERROR] ${reason}\nkeyLoaded=${Boolean(KAKAO_APP_KEY)} host=${window.location.host}\n` +
+          "카카오 콘솔 JavaScript SDK 도메인에 현재 host 등록 필요"
+      );
     };
 
     if (window.kakao?.maps) {
@@ -37,6 +47,7 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
     const existing = document.querySelector("script[data-kakao-map='true']");
     if (existing) {
       existing.addEventListener("load", markReady);
+      existing.addEventListener("error", () => markError("sdk script load failed(existing)"));
       return () => existing.removeEventListener("load", markReady);
     }
 
@@ -45,8 +56,15 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
     script.async = true;
     script.dataset.kakaoMap = "true";
     script.addEventListener("load", markReady);
+    script.addEventListener("error", () => markError("sdk script load failed"));
     document.head.appendChild(script);
-    return () => script.removeEventListener("load", markReady);
+    const timer = window.setTimeout(() => {
+      if (!window.kakao?.maps) markError("sdk load timeout");
+    }, 5000);
+    return () => {
+      script.removeEventListener("load", markReady);
+      window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -54,12 +72,16 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
 
     if (mapRef.current) return;
 
-    const map = new window.kakao.maps.Map(containerRef.current, {
-      center: new window.kakao.maps.LatLng(center[0], center[1]),
-      level: 3,
-    });
-    mapRef.current = map;
-    infoRef.current = new window.kakao.maps.InfoWindow({ zIndex: 3 });
+    try {
+      const map = new window.kakao.maps.Map(containerRef.current, {
+        center: new window.kakao.maps.LatLng(center[0], center[1]),
+        level: 3,
+      });
+      mapRef.current = map;
+      infoRef.current = new window.kakao.maps.InfoWindow({ zIndex: 3 });
+    } catch (e) {
+      setDebugMessage(`[KAKAO MAP ERROR] map init failed: ${e?.message || String(e)}`);
+    }
   }, [center, sdkReady]);
 
   useEffect(() => {
@@ -181,7 +203,7 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
     );
   }
 
-  if (!sdkReady) {
+  if (!sdkReady || debugMessage) {
     return (
       <Box
         sx={{
@@ -194,9 +216,10 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
           bgcolor: "#0a0f0a",
           px: 2,
           textAlign: "center",
+          whiteSpace: "pre-line",
         }}
       >
-        카카오 지도 로딩 중...
+        {debugMessage || "카카오 지도 로딩 중..."}
       </Box>
     );
   }
