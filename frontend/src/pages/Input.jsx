@@ -12,7 +12,7 @@ const Input = () => {
           <Typography sx={{ color: "rgba(255,255,255,0.75)", textAlign: "center" }}>
             모듈 READY 신호 전송 완료. 쓰레기통 LED(노랑) 근처에 배출해주세요.
           </Typography>
-          <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)" }} onClick={() => navigate("/map")}>
+          <Button variant="outlined" sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)" }} onClick={() => navigate("/map", { state: { focusMyLocation: true } })}>
             Map으로 이동
           </Button>
         </Stack>

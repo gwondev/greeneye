@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, useMemo } from "react";
 import { Typography, Box, Paper, Stack, Button, Alert } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getUser } from "../services/auth";
 import { apiFetch } from "../services/api";
 import { keyframes } from "@emotion/react";
@@ -40,6 +40,7 @@ const ctaShine = keyframes`
 
 const Map = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getUser();
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -49,6 +50,7 @@ const Map = () => {
   const [heldType, setHeldType] = useState(() => sessionStorage.getItem(HELD_KEY) || "");
   const [myRewards, setMyRewards] = useState(0);
   const [rewardBurst, setRewardBurst] = useState(false);
+  const [centerTrigger, setCenterTrigger] = useState(1);
 
   useEffect(() => {
     if (!user?.oauthId) {
@@ -61,22 +63,34 @@ const Map = () => {
       return;
     }
 
-    // 내 위치를 실시간에 가깝게 계속 갱신
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setUserPos([pos.coords.latitude, pos.coords.longitude]);
-        setGeoMessage("");
-      },
-      () => {
-        setGeoMessage("위치 권한이 필요합니다. 브라우저 설정에서 위치를 허용한 뒤 새로고침 해 주세요.");
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
-    );
+    const pullPosition = () => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserPos([pos.coords.latitude, pos.coords.longitude]);
+          setGeoMessage("");
+        },
+        () => {
+          setGeoMessage("위치 권한이 필요합니다. 브라우저 설정에서 위치를 허용한 뒤 새로고침 해 주세요.");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 }
+      );
+    };
+
+    // 첫 진입 시 즉시 1회 + 1초마다 위치 갱신
+    pullPosition();
+    const ticker = window.setInterval(pullPosition, 1000);
 
     return () => {
-      navigator.geolocation.clearWatch(watchId);
+      window.clearInterval(ticker);
     };
   }, [navigate, user?.oauthId]);
+
+  useEffect(() => {
+    if (location.state?.focusMyLocation) {
+      setCenterTrigger((prev) => prev + 1);
+      navigate("/map", { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   useEffect(() => {
     const sync = () => setHeldType(sessionStorage.getItem(HELD_KEY) || "");
@@ -433,8 +447,8 @@ const Map = () => {
               fontWeight: 600,
             }}
           >
-            <Box component="span" aria-label="파란 원" sx={{ fontSize: "0.85em" }}>
-              🔵
+            <Box component="span" aria-label="빨간 원" sx={{ fontSize: "0.85em" }}>
+              🔴
             </Box>{" "}
             내 위치 ·{" "}
             <Box component="span" aria-label="초록 원" sx={{ fontSize: "0.85em" }}>
@@ -517,7 +531,7 @@ const Map = () => {
             </Box>
           }
         >
-          <MapView userPos={userPos} modules={modulesForMap} onReady={handleReady} hasHeldWaste={hasHeldWaste} />
+          <MapView userPos={userPos} modules={modulesForMap} onReady={handleReady} hasHeldWaste={hasHeldWaste} centerTrigger={centerTrigger} />
         </Suspense>
         <Button
           variant="outlined"

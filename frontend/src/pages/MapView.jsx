@@ -16,15 +16,19 @@ const TYPE_SYMBOLS = {
  * @param {Array} props.modules
  * @param {(serial: string) => void} props.onReady
  * @param {boolean} props.hasHeldWaste
+ * @param {number} props.centerTrigger
  */
-export default function MapView({ userPos, modules, onReady, hasHeldWaste = false }) {
+export default function MapView({ userPos, modules, onReady, hasHeldWaste = false, centerTrigger = 0 }) {
   const fallback = [35.1462, 126.9229];
   const center = userPos && userPos[0] != null && userPos[1] != null ? userPos : fallback;
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const overlaysRef = useRef([]);
+  const userOverlayRef = useRef(null);
   const infoRef = useRef(null);
+  const centeredOnceRef = useRef(false);
+  const latestCenterTriggerRef = useRef(centerTrigger);
   const [sdkReady, setSdkReady] = useState(false);
   const [debugMessage, setDebugMessage] = useState("");
 
@@ -92,8 +96,15 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
 
   useEffect(() => {
     if (!sdkReady || !mapRef.current || !window.kakao?.maps) return;
-    mapRef.current.panTo(new window.kakao.maps.LatLng(center[0], center[1]));
-  }, [center]);
+    if (!userPos || userPos[0] == null || userPos[1] == null) return;
+
+    const hasNewTrigger = latestCenterTriggerRef.current !== centerTrigger;
+    if (!centeredOnceRef.current || hasNewTrigger) {
+      mapRef.current.panTo(new window.kakao.maps.LatLng(userPos[0], userPos[1]));
+      centeredOnceRef.current = true;
+      latestCenterTriggerRef.current = centerTrigger;
+    }
+  }, [centerTrigger, sdkReady, userPos]);
 
   useEffect(() => {
     if (!sdkReady || !mapRef.current || !window.kakao?.maps) return;
@@ -105,15 +116,6 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
 
     const map = mapRef.current;
     const infoWindow = infoRef.current;
-
-    if (userPos && userPos[0] != null && userPos[1] != null) {
-      const userMarker = new window.kakao.maps.Marker({
-        map,
-        position: new window.kakao.maps.LatLng(userPos[0], userPos[1]),
-        title: "내 위치",
-      });
-      markersRef.current.push(userMarker);
-    }
 
     modules.forEach((m) => {
       if (m.lat == null || m.lon == null) return;
@@ -221,7 +223,78 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
       markersRef.current = [];
       overlaysRef.current = [];
     };
-  }, [modules, userPos, hasHeldWaste, onReady]);
+  }, [modules, hasHeldWaste, onReady]);
+
+  useEffect(() => {
+    if (!sdkReady || !mapRef.current || !window.kakao?.maps) return;
+
+    if (userOverlayRef.current) {
+      userOverlayRef.current.setMap(null);
+      userOverlayRef.current = null;
+    }
+    if (!userPos || userPos[0] == null || userPos[1] == null) return;
+
+    if (!document.getElementById("greeneye-user-pulse-style")) {
+      const style = document.createElement("style");
+      style.id = "greeneye-user-pulse-style";
+      style.textContent = `
+        @keyframes greeneyeUserPulse {
+          0% { transform: scale(0.72); opacity: 0.95; }
+          70% { transform: scale(1.55); opacity: 0.22; }
+          100% { transform: scale(1.85); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const dotWrap = document.createElement("div");
+    dotWrap.style.position = "relative";
+    dotWrap.style.width = "22px";
+    dotWrap.style.height = "22px";
+    dotWrap.style.transform = "translate(-11px, -11px)";
+
+    const pulse = document.createElement("div");
+    pulse.style.position = "absolute";
+    pulse.style.left = "50%";
+    pulse.style.top = "50%";
+    pulse.style.width = "22px";
+    pulse.style.height = "22px";
+    pulse.style.borderRadius = "50%";
+    pulse.style.background = "rgba(255,64,64,0.45)";
+    pulse.style.transform = "translate(-50%, -50%)";
+    pulse.style.animation = "greeneyeUserPulse 1.1s ease-out infinite";
+
+    const core = document.createElement("div");
+    core.style.position = "absolute";
+    core.style.left = "50%";
+    core.style.top = "50%";
+    core.style.width = "10px";
+    core.style.height = "10px";
+    core.style.borderRadius = "50%";
+    core.style.background = "#ff4a4a";
+    core.style.border = "2px solid rgba(255,255,255,0.92)";
+    core.style.boxShadow = "0 0 10px rgba(255,74,74,0.85)";
+    core.style.transform = "translate(-50%, -50%)";
+
+    dotWrap.appendChild(pulse);
+    dotWrap.appendChild(core);
+
+    const overlay = new window.kakao.maps.CustomOverlay({
+      position: new window.kakao.maps.LatLng(userPos[0], userPos[1]),
+      content: dotWrap,
+      yAnchor: 0.5,
+      zIndex: 7,
+    });
+    overlay.setMap(mapRef.current);
+    userOverlayRef.current = overlay;
+
+    return () => {
+      if (userOverlayRef.current) {
+        userOverlayRef.current.setMap(null);
+        userOverlayRef.current = null;
+      }
+    };
+  }, [userPos, sdkReady]);
 
   if (!KAKAO_APP_KEY) {
     return (

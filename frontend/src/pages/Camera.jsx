@@ -80,7 +80,7 @@ const Camera = () => {
     if (finalType) {
       sessionStorage.setItem(HELD_KEY, finalType);
     }
-    navigate("/map");
+    navigate("/map", { state: { focusMyLocation: true } });
   };
 
   return (
@@ -248,7 +248,7 @@ const Camera = () => {
             <Button
               variant="outlined"
               sx={{ color: "#7CFF72", borderColor: "rgba(124,255,114,0.35)", width: { xs: "100%", sm: "calc(50% - 6px)" } }}
-              onClick={() => navigate("/map")}
+              onClick={() => navigate("/map", { state: { focusMyLocation: true } })}
             >
               지도로 (저장 안 함)
             </Button>
