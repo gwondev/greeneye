@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useMemo } from "react";
+import { lazy, Suspense, useEffect, useState, useMemo, useRef } from "react";
 import { Typography, Box, Paper, Stack, Button, Alert, Snackbar } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUser } from "../services/auth";
@@ -12,6 +12,7 @@ import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
 const MapView = lazy(() => import("./MapView.jsx"));
 
 const HELD_KEY = "greeneye.finalWasteType";
+const PENDING_REWARD_KEY = "greeneye.pendingReward";
 const HELD_TYPE_LABELS = {
   CAN: "캔",
   PET: "페트병",
@@ -20,7 +21,11 @@ const HELD_TYPE_LABELS = {
 };
 const ringAnim = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; }
-  100% { transform: translate(-50%, -50%) scale(3.4); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(4.8); opacity: 0; }
+`;
+const shockwaveAnim = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.1); opacity: 0.85; }
+  100% { transform: translate(-50%, -50%) scale(6.4); opacity: 0; }
 `;
 const ctaPulse = keyframes`
   0%, 100% { transform: translateY(0); box-shadow: 0 10px 34px rgba(124,255,114,0.34), 0 0 0 1px rgba(124,255,114,0.42); }
@@ -32,10 +37,10 @@ const ctaShine = keyframes`
   100% { transform: translateX(220%); opacity: 0; }
 `;
 const centerBurst = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-  12% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+  0% { transform: translate(-50%, -50%) scale(0.18); opacity: 0; }
+  12% { transform: translate(-50%, -50%) scale(1.18); opacity: 1; }
   70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
 `;
 const starFloat = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 0; }
@@ -53,11 +58,21 @@ const Map = () => {
   const [userPos, setUserPos] = useState(null);
   const [geoMessage, setGeoMessage] = useState("");
   const [heldType, setHeldType] = useState(() => sessionStorage.getItem(HELD_KEY) || "");
-  const [myRewards, setMyRewards] = useState(0);
+  const [myRewards, setMyRewards] = useState(() => Number(user?.nowRewards ?? 0));
   const [rewardBurst, setRewardBurst] = useState(false);
   const [rewardDelta, setRewardDelta] = useState(0);
   const [rewardToast, setRewardToast] = useState("");
   const [centerTrigger, setCenterTrigger] = useState(1);
+  const rewardReadyRef = useRef(false);
+  const isLocalNoEnv = import.meta.env.DEV && !String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
+
+  const fireRewardEffect = (delta) => {
+    const amount = Math.max(1, Number(delta || 0));
+    setRewardDelta(amount);
+    setRewardToast(`리워드 +${amount} 획득!`);
+    setRewardBurst(true);
+    setTimeout(() => setRewardBurst(false), 1900);
+  };
 
   useEffect(() => {
     if (!user?.oauthId) {
@@ -100,6 +115,14 @@ const Map = () => {
   }, [location.state, navigate]);
 
   useEffect(() => {
+    const pending = Number(sessionStorage.getItem(PENDING_REWARD_KEY) || 0);
+    if (pending > 0) {
+      fireRewardEffect(pending);
+      sessionStorage.removeItem(PENDING_REWARD_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
     const sync = () => setHeldType(sessionStorage.getItem(HELD_KEY) || "");
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
@@ -128,12 +151,12 @@ const Map = () => {
           const me = users.find((u) => u?.nickname === nick);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
+            if (!rewardReadyRef.current) {
+              rewardReadyRef.current = true;
+              return nextRewards;
+            }
             if (nextRewards > prev) {
-              const delta = nextRewards - prev;
-              setRewardDelta(delta);
-              setRewardToast(`리워드 +${delta} 획득!`);
-              setRewardBurst(true);
-              setTimeout(() => setRewardBurst(false), 1400);
+              fireRewardEffect(nextRewards - prev);
             }
             return nextRewards;
           });
@@ -156,12 +179,12 @@ const Map = () => {
           const me = users.find((u) => u?.nickname === nick);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
+            if (!rewardReadyRef.current) {
+              rewardReadyRef.current = true;
+              return nextRewards;
+            }
             if (nextRewards > prev) {
-              const delta = nextRewards - prev;
-              setRewardDelta(delta);
-              setRewardToast(`리워드 +${delta} 획득!`);
-              setRewardBurst(true);
-              setTimeout(() => setRewardBurst(false), 1400);
+              fireRewardEffect(nextRewards - prev);
             }
             return nextRewards;
           });
@@ -246,10 +269,11 @@ const Map = () => {
   const displayName = user?.nickname || "사용자";
 
   const modulesForMap = useMemo(() => {
+    if (isLocalNoEnv) return modules;
     const h = (heldType || "").trim().toUpperCase();
     if (!h) return modules;
     return modules.filter((m) => (m.type || "GENERAL").toUpperCase() === h);
-  }, [modules, heldType]);
+  }, [modules, heldType, isLocalNoEnv]);
 
   const heldTypeSummary = useMemo(() => {
     const key = (heldType || "").trim().toUpperCase();
@@ -354,13 +378,28 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: "50%",
-              width: { xs: 160, sm: 210 },
-              height: { xs: 160, sm: 210 },
+              width: { xs: 280, sm: 420 },
+              height: { xs: 280, sm: 420 },
               borderRadius: "50%",
-              border: "5px solid rgba(124,255,114,0.85)",
+              border: "8px solid rgba(124,255,114,0.95)",
               transform: "translate(-50%, -50%)",
-              animation: `${ringAnim} 1.1s ease-out`,
+              animation: `${ringAnim} 1.7s ease-out`,
               zIndex: 1490,
+              pointerEvents: "none",
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: { xs: 340, sm: 520 },
+              height: { xs: 340, sm: 520 },
+              borderRadius: "50%",
+              border: "4px solid rgba(236,255,145,0.75)",
+              transform: "translate(-50%, -50%)",
+              animation: `${shockwaveAnim} 1.7s ease-out`,
+              zIndex: 1489,
               pointerEvents: "none",
             }}
           />
@@ -371,10 +410,10 @@ const Map = () => {
               top: "50%",
               color: "rgba(173,255,151,0.95)",
               fontWeight: 900,
-              fontSize: { xs: "2.4rem", sm: "3.1rem" },
-              textShadow: "0 8px 30px rgba(124,255,114,0.55)",
+              fontSize: { xs: "4.2rem", sm: "6.2rem" },
+              textShadow: "0 10px 40px rgba(124,255,114,0.72)",
               transform: "translate(-50%, -50%)",
-              animation: `${centerBurst} 1.4s ease-out`,
+              animation: `${centerBurst} 1.9s ease-out`,
               zIndex: 1491,
               pointerEvents: "none",
             }}
@@ -388,10 +427,10 @@ const Map = () => {
               top: "50%",
               color: "#7CFF72",
               fontWeight: 900,
-              fontSize: { xs: "3rem", sm: "3.8rem" },
-              textShadow: "0 8px 28px rgba(124,255,114,0.55)",
+              fontSize: { xs: "5.4rem", sm: "8rem" },
+              textShadow: "0 10px 40px rgba(124,255,114,0.78)",
               transform: "translate(-50%, -50%)",
-              animation: `${centerBurst} 1.4s ease-out`,
+              animation: `${centerBurst} 1.9s ease-out`,
               zIndex: 1491,
               pointerEvents: "none",
             }}
@@ -405,10 +444,10 @@ const Map = () => {
               top: "50%",
               color: "#e8ffe1",
               fontWeight: 800,
-              fontSize: { xs: "0.95rem", sm: "1.2rem" },
-              transform: "translate(-50%, calc(-50% + 58px))",
-              textShadow: "0 8px 26px rgba(124,255,114,0.45)",
-              animation: `${centerBurst} 1.4s ease-out`,
+              fontSize: { xs: "1.35rem", sm: "1.9rem" },
+              transform: "translate(-50%, calc(-50% + 106px))",
+              textShadow: "0 8px 30px rgba(124,255,114,0.55)",
+              animation: `${centerBurst} 1.9s ease-out`,
               zIndex: 1491,
               pointerEvents: "none",
               whiteSpace: "nowrap",
@@ -417,12 +456,16 @@ const Map = () => {
             리워드 획득!
           </Box>
           {[
-            ["-35%", "-95%"],
-            ["35%", "-95%"],
-            ["-95%", "-48%"],
-            ["95%", "-48%"],
-            ["-55%", "10%"],
-            ["55%", "10%"],
+            ["-40%", "-140%"],
+            ["40%", "-140%"],
+            ["-140%", "-62%"],
+            ["140%", "-62%"],
+            ["-80%", "18%"],
+            ["80%", "18%"],
+            ["-10%", "-160%"],
+            ["10%", "-160%"],
+            ["-165%", "-8%"],
+            ["165%", "-8%"],
           ].map(([tx, ty], idx) => (
             <Box
               key={`star-${idx}`}
@@ -431,12 +474,12 @@ const Map = () => {
                 left: "50%",
                 top: "50%",
                 color: idx % 2 === 0 ? "#b8ff9e" : "#f6ff8a",
-                fontSize: { xs: "1.15rem", sm: "1.35rem" },
+                fontSize: { xs: "2.3rem", sm: "3rem" },
                 zIndex: 1492,
                 pointerEvents: "none",
                 "--tx": tx,
                 "--ty": ty,
-                animation: `${starFloat} 1.05s ease-out`,
+                animation: `${starFloat} 1.45s ease-out`,
               }}
             >
               ✦
@@ -445,7 +488,7 @@ const Map = () => {
         </>
       )}
 
-      {heldType && modules.length > modulesForMap.length && (
+      {!isLocalNoEnv && heldType && modules.length > modulesForMap.length && (
         <Alert
           severity="info"
           sx={{
@@ -835,7 +878,7 @@ const Map = () => {
     </Box>
       <Snackbar
         open={Boolean(rewardToast)}
-        autoHideDuration={1600}
+        autoHideDuration={2200}
         onClose={() => setRewardToast("")}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         message={rewardToast}

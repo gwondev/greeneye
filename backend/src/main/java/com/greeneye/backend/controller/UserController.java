@@ -125,14 +125,16 @@ public class UserController {
         userRepository.save(user);
 
         String item = body.get("item") == null ? "" : body.get("item").toString().trim();
-        Map<String, String> mailInfo = rewardMailService.sendRewardExchangeMail(user, item, cost);
+        Map<String, Object> mailInfo = rewardMailService.sendRewardExchangeMail(user, item, cost);
         return Map.of(
                 "ok", true,
                 "item", item,
                 "cost", cost,
                 "nowRewards", user.getNowRewards(),
-                "sentTo", mailInfo.getOrDefault("email", ""),
-                "rewardCode", mailInfo.getOrDefault("code", "")
+                "sentTo", String.valueOf(mailInfo.getOrDefault("email", "")),
+                "rewardCode", String.valueOf(mailInfo.getOrDefault("code", "")),
+                "mailSent", Boolean.TRUE.equals(mailInfo.get("sent")),
+                "mailMessage", String.valueOf(mailInfo.getOrDefault("message", ""))
         );
     }
 

@@ -26,11 +26,14 @@ public class RewardMailService {
     @Value("${spring.mail.from:no-reply@greeneye.local}")
     private String fromAddress;
 
-    public Map<String, String> sendRewardExchangeMail(User user, String itemName, int usedRewards) {
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
+
+    public Map<String, Object> sendRewardExchangeMail(User user, String itemName, int usedRewards) {
         String email = user.getEmail() == null ? "" : user.getEmail().trim();
-        if (email.isBlank()) {
-            throw new IllegalStateException("등록된 구글 이메일이 없습니다. 다시 로그인 후 시도해 주세요.");
-        }
         String code = generateCode();
         String subject = "[GreenEye] 리워드 교환 코드 안내";
         String body = """
@@ -44,14 +47,49 @@ public class RewardMailService {
                 감사합니다.
                 """.formatted(usedRewards, itemName, code);
 
+        boolean smtpConfigured = !mailUsername.isBlank() && !mailPassword.isBlank();
+        if (!smtpConfigured) {
+            log.warn("Reward mail skipped (SMTP not configured). userId={} item={} code={}", user.getId(), itemName, code);
+            return Map.of(
+                    "email", email,
+                    "code", code,
+                    "sent", false,
+                    "message", "메일 설정이 없어 코드만 발급되었습니다."
+            );
+        }
+        if (email.isBlank()) {
+            log.warn("Reward mail skipped (user email missing). userId={} item={} code={}", user.getId(), itemName, code);
+            return Map.of(
+                    "email", "",
+                    "code", code,
+                    "sent", false,
+                    "message", "등록된 구글 이메일이 없어 코드만 발급되었습니다. 다시 로그인해 이메일을 갱신해 주세요."
+            );
+        }
+
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(email);
         message.setSubject(subject);
         message.setText(body);
-        mailSender.send(message);
-        log.info("Reward exchange mail sent userId={} email={} item={} code={}", user.getId(), email, itemName, code);
-        return Map.of("email", email, "code", code);
+        try {
+            mailSender.send(message);
+            log.info("Reward exchange mail sent userId={} email={} item={} code={}", user.getId(), email, itemName, code);
+            return Map.of(
+                    "email", email,
+                    "code", code,
+                    "sent", true,
+                    "message", "등록된 이메일로 코드가 발송되었습니다."
+            );
+        } catch (Exception e) {
+            log.error("Reward mail send failed userId={} email={} item={} code={}", user.getId(), email, itemName, code, e);
+            return Map.of(
+                    "email", email,
+                    "code", code,
+                    "sent", false,
+                    "message", "메일 전송에 실패해 코드만 발급되었습니다."
+            );
+        }
     }
 
     private String generateCode() {

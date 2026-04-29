@@ -16,6 +16,7 @@ import { getUser } from "../services/auth";
 import { apiFetchMultipart } from "../services/api";
 
 const HELD_KEY = "greeneye.finalWasteType";
+const PENDING_REWARD_KEY = "greeneye.pendingReward";
 
 const TYPE_LABELS = {
   CAN: "캔",
@@ -68,6 +69,10 @@ const Camera = () => {
       }
       const data = await apiFetchMultipart("/ai/analyze", fd);
       setResult(data);
+      const granted = Number(data?.rewardGranted ?? 0);
+      if (granted > 0) {
+        sessionStorage.setItem(PENDING_REWARD_KEY, String(granted));
+      }
     } catch (e) {
       alert(e.message || "분석 실패");
     } finally {

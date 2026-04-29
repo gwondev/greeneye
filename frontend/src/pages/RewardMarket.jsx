@@ -27,6 +27,7 @@ const RewardMarket = () => {
   const [nowRewards, setNowRewards] = useState(() => Number(getUser()?.nowRewards ?? 0));
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastSeverity, setToastSeverity] = useState("success");
   const nickname = currentUser?.nickname;
 
   useEffect(() => {
@@ -50,10 +51,12 @@ const RewardMarket = () => {
 
   const requestExchange = async (item) => {
     if (nowRewards < item.need) {
+      setToastSeverity("warning");
       setToast(`리워드가 부족합니다. (${item.need} 필요)`);
       return;
     }
     if (!currentUser?.id) {
+      setToastSeverity("error");
       setToast("로그인 정보가 올바르지 않습니다.");
       return;
     }
@@ -71,9 +74,18 @@ const RewardMarket = () => {
       const merged = { ...currentUser, nowRewards: next };
       saveUser(merged);
       setCurrentUser(merged);
-      const sentTo = res?.sentTo ? ` (${res.sentTo})` : "";
-      setToast(`교환 완료: ${item.value} 코드가 이메일로 발송됐습니다${sentTo}.`);
+      const code = res?.rewardCode ? ` [코드: ${res.rewardCode}]` : "";
+      if (res?.mailSent) {
+        setToastSeverity("success");
+        const sentTo = res?.sentTo ? ` (${res.sentTo})` : "";
+        setToast(`교환 완료: ${item.value} 코드가 이메일로 발송됐습니다${sentTo}.${code}`);
+      } else {
+        setToastSeverity("info");
+        const msg = res?.mailMessage || "메일 전송 실패로 코드만 발급되었습니다.";
+        setToast(`교환 완료: ${msg}${code}`);
+      }
     } catch (e) {
+      setToastSeverity("error");
       setToast(e?.message || "교환 처리 실패");
     } finally {
       setLoading(false);
@@ -151,7 +163,7 @@ const RewardMarket = () => {
         onClose={() => setToast("")}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert onClose={() => setToast("")} severity="success" sx={{ width: "100%" }}>
+        <Alert onClose={() => setToast("")} severity={toastSeverity} sx={{ width: "100%" }}>
           {toast}
         </Alert>
       </Snackbar>
