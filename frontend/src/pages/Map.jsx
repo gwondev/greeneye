@@ -42,10 +42,20 @@ const centerBurst = keyframes`
   70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
 `;
-const starFloat = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 0; }
-  15% { opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) scale(1.2) rotate(55deg); opacity: 0; }
+const particleFloat = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 0; }
+`;
+const haloSpin = keyframes`
+  0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0; }
+  18% { opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) rotate(180deg); opacity: 0; }
+`;
+const numberRise = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  22% { transform: translate(-50%, -50%) scale(1.02); opacity: 1; }
+  100% { transform: translate(-50%, calc(-50% - 26px)) scale(1); opacity: 0; }
 `;
 
 const Map = () => {
@@ -380,12 +390,44 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: "50%",
+              width: { xs: 210, sm: 280 },
+              height: { xs: 210, sm: 280 },
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(124,255,114,0.28) 0%, rgba(124,255,114,0.08) 45%, rgba(124,255,114,0) 75%)",
+              transform: "translate(-50%, -50%)",
+              animation: `${centerBurst} 1.8s ease-out`,
+              filter: "blur(1px)",
+              zIndex: 1488,
+              pointerEvents: "none",
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
               width: { xs: 280, sm: 420 },
               height: { xs: 280, sm: 420 },
               borderRadius: "50%",
               border: "8px solid rgba(124,255,114,0.95)",
               transform: "translate(-50%, -50%)",
               animation: `${ringAnim} 1.7s ease-out`,
+              zIndex: 1490,
+              pointerEvents: "none",
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: { xs: 210, sm: 290 },
+              height: { xs: 210, sm: 290 },
+              borderRadius: "50%",
+              border: "1.5px solid rgba(124,255,114,0.55)",
+              borderTopColor: "rgba(124,255,114,0)",
+              borderBottomColor: "rgba(124,255,114,0.15)",
+              animation: `${haloSpin} 1.55s ease-out`,
               zIndex: 1490,
               pointerEvents: "none",
             }}
@@ -420,7 +462,7 @@ const Map = () => {
               pointerEvents: "none",
             }}
           >
-            ⭐
+            ●
           </Box>
           <Box
             sx={{
@@ -432,7 +474,7 @@ const Map = () => {
               fontSize: { xs: "5.4rem", sm: "8rem" },
               textShadow: "0 10px 40px rgba(124,255,114,0.78)",
               transform: "translate(-50%, -50%)",
-              animation: `${centerBurst} 1.9s ease-out`,
+              animation: `${numberRise} 1.9s ease-out`,
               zIndex: 1491,
               pointerEvents: "none",
             }}
@@ -475,17 +517,20 @@ const Map = () => {
                 position: "absolute",
                 left: "50%",
                 top: "50%",
-                color: idx % 2 === 0 ? "#b8ff9e" : "#f6ff8a",
-                fontSize: { xs: "2.3rem", sm: "3rem" },
+                width: { xs: 9, sm: 12 },
+                height: { xs: 9, sm: 12 },
+                borderRadius: "50%",
+                background: idx % 3 === 0
+                  ? "linear-gradient(140deg, rgba(124,255,114,1), rgba(206,255,157,0.9))"
+                  : "linear-gradient(140deg, rgba(92,246,169,0.95), rgba(124,255,114,0.85))",
+                boxShadow: "0 0 20px rgba(124,255,114,0.65)",
                 zIndex: 1492,
                 pointerEvents: "none",
                 "--tx": tx,
                 "--ty": ty,
-                animation: `${starFloat} 1.45s ease-out`,
+                animation: `${particleFloat} 1.45s ease-out`,
               }}
-            >
-              ✦
-            </Box>
+            />
           ))}
         </>
       )}
