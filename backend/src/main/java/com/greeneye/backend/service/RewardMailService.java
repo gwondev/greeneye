@@ -54,6 +54,8 @@ public class RewardMailService {
                     "email", email,
                     "code", code,
                     "sent", false,
+                    "reasonCode", "SMTP_NOT_CONFIGURED",
+                    "reasonDetail", "MAIL_USERNAME 또는 MAIL_PASSWORD 환경변수가 비어 있습니다.",
                     "message", "메일 설정이 없어 코드만 발급되었습니다."
             );
         }
@@ -63,6 +65,8 @@ public class RewardMailService {
                     "email", "",
                     "code", code,
                     "sent", false,
+                    "reasonCode", "USER_EMAIL_MISSING",
+                    "reasonDetail", "DB users.email 값이 비어 있습니다.",
                     "message", "등록된 구글 이메일이 없어 코드만 발급되었습니다. 다시 로그인해 이메일을 갱신해 주세요."
             );
         }
@@ -79,14 +83,22 @@ public class RewardMailService {
                     "email", email,
                     "code", code,
                     "sent", true,
+                    "reasonCode", "SENT",
+                    "reasonDetail", "",
                     "message", "등록된 이메일로 코드가 발송되었습니다."
             );
         } catch (Exception e) {
             log.error("Reward mail send failed userId={} email={} item={} code={}", user.getId(), email, itemName, code, e);
+            String detail = e.getClass().getSimpleName() + ": " + (e.getMessage() == null ? "" : e.getMessage());
+            if (detail.length() > 240) {
+                detail = detail.substring(0, 240) + "…";
+            }
             return Map.of(
                     "email", email,
                     "code", code,
                     "sent", false,
+                    "reasonCode", "SMTP_SEND_FAILED",
+                    "reasonDetail", detail,
                     "message", "메일 전송에 실패해 코드만 발급되었습니다."
             );
         }

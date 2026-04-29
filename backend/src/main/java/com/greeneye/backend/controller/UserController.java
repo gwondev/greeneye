@@ -134,7 +134,9 @@ public class UserController {
                 "sentTo", String.valueOf(mailInfo.getOrDefault("email", "")),
                 "rewardCode", String.valueOf(mailInfo.getOrDefault("code", "")),
                 "mailSent", Boolean.TRUE.equals(mailInfo.get("sent")),
-                "mailMessage", String.valueOf(mailInfo.getOrDefault("message", ""))
+                "mailMessage", String.valueOf(mailInfo.getOrDefault("message", "")),
+                "mailReasonCode", String.valueOf(mailInfo.getOrDefault("reasonCode", "")),
+                "mailReasonDetail", String.valueOf(mailInfo.getOrDefault("reasonDetail", ""))
         );
     }
 

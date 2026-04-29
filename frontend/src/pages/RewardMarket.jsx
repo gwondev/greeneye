@@ -82,7 +82,9 @@ const RewardMarket = () => {
       } else {
         setToastSeverity("info");
         const msg = res?.mailMessage || "메일 전송 실패로 코드만 발급되었습니다.";
-        setToast(`교환 완료: ${msg}${code}`);
+        const reasonCode = res?.mailReasonCode ? ` [사유코드: ${res.mailReasonCode}]` : "";
+        const reasonDetail = res?.mailReasonDetail ? ` (${res.mailReasonDetail})` : "";
+        setToast(`교환 완료: ${msg}${reasonCode}${reasonDetail}${code}`);
       }
     } catch (e) {
       setToastSeverity("error");

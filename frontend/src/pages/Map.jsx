@@ -67,7 +67,9 @@ const Map = () => {
   const isLocalNoEnv = import.meta.env.DEV && !String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
   const fireRewardEffect = (delta) => {
-    const amount = Math.max(1, Number(delta || 0));
+    const raw = Number(delta || 0);
+    const amount = raw === 1 || raw === 5 ? raw : 0;
+    if (amount <= 0) return;
     setRewardDelta(amount);
     setRewardToast(`리워드 +${amount} 획득!`);
     setRewardBurst(true);

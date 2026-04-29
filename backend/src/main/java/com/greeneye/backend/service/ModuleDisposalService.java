@@ -22,7 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class ModuleDisposalService {
-    private static final int DISPOSAL_REWARD = 10;
+    private static final int DISPOSAL_REWARD = 5;
 
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;
