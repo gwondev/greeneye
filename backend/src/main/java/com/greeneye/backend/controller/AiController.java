@@ -134,6 +134,8 @@ public class AiController {
         result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
         result.put("cameraDailyCount", user.getCameraDailyCount());
         result.put("remainingToday", 10 - user.getCameraDailyCount());
+        result.put("rewardGranted", 1);
+        result.put("nowRewards", user.getNowRewards());
         return result;
     }
 
@@ -172,6 +174,8 @@ public class AiController {
         result.put("model", "hint-fallback");
         result.put("cameraDailyCount", user.getCameraDailyCount());
         result.put("remainingToday", 10 - user.getCameraDailyCount());
+        result.put("rewardGranted", 1);
+        result.put("nowRewards", user.getNowRewards());
         return result;
     }
 
@@ -205,6 +209,8 @@ public class AiController {
         }
         user.setCameraDailyCount(user.getCameraDailyCount() + 1);
         user.setLastCameraAt(now);
+        user.setNowRewards(user.getNowRewards() + 1);
+        user.setTotalRewards(user.getTotalRewards() + 1);
         userRepository.save(user);
     }
 

@@ -20,6 +20,9 @@ public class User {
     @Column(name = "oauth_id", unique = true, nullable = false, length = 100)
     private String oauthId;
 
+    @Column(name = "email", length = 150)
+    private String email;
+
     @Column(name = "nickname", unique = true, length = 50)
     private String nickname;
 

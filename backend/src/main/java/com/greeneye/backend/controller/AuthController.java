@@ -42,14 +42,19 @@ public class AuthController {
 
         GoogleIdToken.Payload payload = idToken.getPayload();
         String oauthId = payload.getSubject();
+        String email = payload.getEmail();
         User user = userRepository.findByOauthId(oauthId)
                 .orElseGet(() -> {
                     User newUser = new User();
                     newUser.setOauthId(oauthId);
+                    newUser.setEmail(email);
                     newUser.setNickname(null); // 신규 유저 확인용
                     return userRepository.save(newUser);
                 });
 
+        if (email != null && !email.isBlank()) {
+            user.setEmail(email.trim());
+        }
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
@@ -57,6 +62,7 @@ public class AuthController {
         Map<String, Object> userDTO = new HashMap<>();
         userDTO.put("id", user.getId());
         userDTO.put("oauthId", oauthId);
+        userDTO.put("email", user.getEmail());
         userDTO.put("nickname", user.getNickname());
         userDTO.put("role", user.getRole());
         userDTO.put("status", user.getStatus());
@@ -106,6 +112,7 @@ public class AuthController {
         Map<String, Object> userDTO = new HashMap<>();
         userDTO.put("id", savedUser.getId());
         userDTO.put("oauthId", oauthId);
+        userDTO.put("email", savedUser.getEmail());
         userDTO.put("nickname", savedUser.getNickname());
         userDTO.put("role", savedUser.getRole());
         userDTO.put("status", savedUser.getStatus());

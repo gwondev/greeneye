@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useMemo } from "react";
-import { Typography, Box, Paper, Stack, Button, Alert } from "@mui/material";
+import { Typography, Box, Paper, Stack, Button, Alert, Snackbar } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUser } from "../services/auth";
 import { apiFetch } from "../services/api";
@@ -18,12 +18,6 @@ const HELD_TYPE_LABELS = {
   GENERAL: "일반쓰레기",
   HAZARD: "유해폐기물",
 };
-const popAnim = keyframes`
-  0% { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
-  10% { transform: translate(-50%, -14px) scale(1.1); opacity: 1; }
-  60% { transform: translate(-50%, -58px) scale(1.2); opacity: 1; }
-  100% { transform: translate(-50%, -90px) scale(0.95); opacity: 0; }
-`;
 const ringAnim = keyframes`
   0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; }
   100% { transform: translate(-50%, -50%) scale(3.4); opacity: 0; }
@@ -36,6 +30,17 @@ const ctaShine = keyframes`
   0% { transform: translateX(-120%); opacity: 0; }
   20% { opacity: 0.35; }
   100% { transform: translateX(220%); opacity: 0; }
+`;
+const centerBurst = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  12% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+  70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+`;
+const starFloat = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.2) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.2) rotate(55deg); opacity: 0; }
 `;
 
 const Map = () => {
@@ -50,6 +55,8 @@ const Map = () => {
   const [heldType, setHeldType] = useState(() => sessionStorage.getItem(HELD_KEY) || "");
   const [myRewards, setMyRewards] = useState(0);
   const [rewardBurst, setRewardBurst] = useState(false);
+  const [rewardDelta, setRewardDelta] = useState(0);
+  const [rewardToast, setRewardToast] = useState("");
   const [centerTrigger, setCenterTrigger] = useState(1);
 
   useEffect(() => {
@@ -122,8 +129,11 @@ const Map = () => {
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
             if (nextRewards > prev) {
+              const delta = nextRewards - prev;
+              setRewardDelta(delta);
+              setRewardToast(`리워드 +${delta} 획득!`);
               setRewardBurst(true);
-              setTimeout(() => setRewardBurst(false), 950);
+              setTimeout(() => setRewardBurst(false), 1400);
             }
             return nextRewards;
           });
@@ -147,8 +157,11 @@ const Map = () => {
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
             if (nextRewards > prev) {
+              const delta = nextRewards - prev;
+              setRewardDelta(delta);
+              setRewardToast(`리워드 +${delta} 획득!`);
               setRewardBurst(true);
-              setTimeout(() => setRewardBurst(false), 950);
+              setTimeout(() => setRewardBurst(false), 1400);
             }
             return nextRewards;
           });
@@ -247,6 +260,7 @@ const Map = () => {
 
   const hasHeldWaste = Boolean((heldType || sessionStorage.getItem(HELD_KEY) || "").trim());
   return (
+    <>
     <Box
       sx={{
         position: "relative",
@@ -338,49 +352,96 @@ const Map = () => {
           <Box
             sx={{
               position: "absolute",
-              right: { xs: 88, sm: 94 },
-              top: { xs: 44, sm: 50 },
-              width: 74,
-              height: 74,
+              left: "50%",
+              top: "50%",
+              width: { xs: 160, sm: 210 },
+              height: { xs: 160, sm: 210 },
               borderRadius: "50%",
-              border: "4px solid rgba(124,255,114,0.78)",
-              animation: `${ringAnim} 0.9s ease-out`,
-              zIndex: 1450,
+              border: "5px solid rgba(124,255,114,0.85)",
+              transform: "translate(-50%, -50%)",
+              animation: `${ringAnim} 1.1s ease-out`,
+              zIndex: 1490,
               pointerEvents: "none",
             }}
           />
           <Box
             sx={{
               position: "absolute",
-              right: { xs: 122, sm: 128 },
-              top: { xs: 64, sm: 74 },
+              left: "50%",
+              top: "50%",
               color: "rgba(173,255,151,0.95)",
               fontWeight: 900,
-              fontSize: { xs: "2.1rem", sm: "2.8rem" },
+              fontSize: { xs: "2.4rem", sm: "3.1rem" },
               textShadow: "0 8px 30px rgba(124,255,114,0.55)",
-              animation: `${popAnim} 0.95s ease-out`,
-              zIndex: 1451,
+              transform: "translate(-50%, -50%)",
+              animation: `${centerBurst} 1.4s ease-out`,
+              zIndex: 1491,
               pointerEvents: "none",
             }}
           >
-            ✦
+            ⭐
           </Box>
           <Box
             sx={{
               position: "absolute",
-              right: { xs: 94, sm: 102 },
-              top: { xs: 92, sm: 102 },
+              left: "50%",
+              top: "50%",
               color: "#7CFF72",
               fontWeight: 900,
-              fontSize: { xs: "2.4rem", sm: "3.1rem" },
+              fontSize: { xs: "3rem", sm: "3.8rem" },
               textShadow: "0 8px 28px rgba(124,255,114,0.55)",
-              animation: `${popAnim} 0.95s ease-out`,
-              zIndex: 1451,
+              transform: "translate(-50%, -50%)",
+              animation: `${centerBurst} 1.4s ease-out`,
+              zIndex: 1491,
               pointerEvents: "none",
             }}
           >
-            +1
+            +{rewardDelta || 1}
           </Box>
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              color: "#e8ffe1",
+              fontWeight: 800,
+              fontSize: { xs: "0.95rem", sm: "1.2rem" },
+              transform: "translate(-50%, calc(-50% + 58px))",
+              textShadow: "0 8px 26px rgba(124,255,114,0.45)",
+              animation: `${centerBurst} 1.4s ease-out`,
+              zIndex: 1491,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            리워드 획득!
+          </Box>
+          {[
+            ["-35%", "-95%"],
+            ["35%", "-95%"],
+            ["-95%", "-48%"],
+            ["95%", "-48%"],
+            ["-55%", "10%"],
+            ["55%", "10%"],
+          ].map(([tx, ty], idx) => (
+            <Box
+              key={`star-${idx}`}
+              sx={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                color: idx % 2 === 0 ? "#b8ff9e" : "#f6ff8a",
+                fontSize: { xs: "1.15rem", sm: "1.35rem" },
+                zIndex: 1492,
+                pointerEvents: "none",
+                "--tx": tx,
+                "--ty": ty,
+                animation: `${starFloat} 1.05s ease-out`,
+              }}
+            >
+              ✦
+            </Box>
+          ))}
         </>
       )}
 
@@ -772,6 +833,14 @@ const Map = () => {
         </Box>
       )}
     </Box>
+      <Snackbar
+        open={Boolean(rewardToast)}
+        autoHideDuration={1600}
+        onClose={() => setRewardToast("")}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        message={rewardToast}
+      />
+    </>
   );
 };
 

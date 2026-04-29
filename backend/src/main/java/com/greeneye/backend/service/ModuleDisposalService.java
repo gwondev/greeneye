@@ -22,6 +22,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class ModuleDisposalService {
+    private static final int DISPOSAL_REWARD = 10;
 
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;
@@ -45,11 +46,11 @@ public class ModuleDisposalService {
 
         record.setStatus("SUCCESS");
         record.setVerifiedAt(LocalDateTime.now());
-        record.setRewardAmount(1);
+        record.setRewardAmount(DISPOSAL_REWARD);
         disposalRecordRepository.save(record);
 
-        user.setNowRewards(user.getNowRewards() + 1);
-        user.setTotalRewards(user.getTotalRewards() + 1);
+        user.setNowRewards(user.getNowRewards() + DISPOSAL_REWARD);
+        user.setTotalRewards(user.getTotalRewards() + DISPOSAL_REWARD);
         userRepository.save(user);
 
         module.setTotalDisposalCount(module.getTotalDisposalCount() + 1);
@@ -65,8 +66,8 @@ public class ModuleDisposalService {
                     newHistory.setDisposalRecord(record);
                     return newHistory;
                 });
-        history.setPoints(1);
-        history.setReason("분리배출 성공");
+        history.setPoints(DISPOSAL_REWARD);
+        history.setReason("쓰레기 투입 성공");
         rewardHistoryRepository.save(history);
 
         module.setStatus("DEFAULT");
@@ -75,7 +76,7 @@ public class ModuleDisposalService {
 
         return Map.of(
                 "ok", true,
-                "reward", 1,
+                "reward", DISPOSAL_REWARD,
                 "nowRewards", user.getNowRewards(),
                 "totalRewards", user.getTotalRewards()
         );

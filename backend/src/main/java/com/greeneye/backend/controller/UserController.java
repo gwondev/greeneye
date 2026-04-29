@@ -5,6 +5,7 @@ import com.greeneye.backend.entity.User;
 import com.greeneye.backend.repository.DisposalRecordRepository;
 import com.greeneye.backend.repository.RewardHistoryRepository;
 import com.greeneye.backend.repository.UserRepository;
+import com.greeneye.backend.service.RewardMailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final DisposalRecordRepository disposalRecordRepository;
     private final RewardHistoryRepository rewardHistoryRepository;
+    private final RewardMailService rewardMailService;
 
     @GetMapping
     public List<User> getAllUsers() {
@@ -123,11 +125,14 @@ public class UserController {
         userRepository.save(user);
 
         String item = body.get("item") == null ? "" : body.get("item").toString().trim();
+        Map<String, String> mailInfo = rewardMailService.sendRewardExchangeMail(user, item, cost);
         return Map.of(
                 "ok", true,
                 "item", item,
                 "cost", cost,
-                "nowRewards", user.getNowRewards()
+                "nowRewards", user.getNowRewards(),
+                "sentTo", mailInfo.getOrDefault("email", ""),
+                "rewardCode", mailInfo.getOrDefault("code", "")
         );
     }
 

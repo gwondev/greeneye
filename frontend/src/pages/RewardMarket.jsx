@@ -71,7 +71,8 @@ const RewardMarket = () => {
       const merged = { ...currentUser, nowRewards: next };
       saveUser(merged);
       setCurrentUser(merged);
-      setToast(`교환 신청 완료: ${item.value}. 등록된 이메일로 전송됩니다.`);
+      const sentTo = res?.sentTo ? ` (${res.sentTo})` : "";
+      setToast(`교환 완료: ${item.value} 코드가 이메일로 발송됐습니다${sentTo}.`);
     } catch (e) {
       setToast(e?.message || "교환 처리 실패");
     } finally {

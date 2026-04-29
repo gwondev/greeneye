@@ -28,6 +28,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-webflux' // Gemini API 호출을 위한 비동기 클라이언트
     implementation 'org.springframework.boot:spring-boot-starter-validation' // @Valid 등 유효성 검사
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
     // --- [2] Database & JPA ---
