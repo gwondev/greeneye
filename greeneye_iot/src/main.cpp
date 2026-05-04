@@ -6,8 +6,15 @@
 #include <mqtt_client.h>
 #include <time.h>
 
-// ========== 筌뤴뫀諭??⑥쥙?甕곕뜇?뉛쭕???륁젟 (DB modules.serial_number) ==========
-static const char *MODULE_SERIAL = "g1";
+// ========== 모듈 ID (DB modules.serial_number, MQTT greeneye/<id>/…) ==========
+// platformio.ini 의 build_flags -DGREENEYE_MODULE_SERIAL=… 로만 설정 (문자열 매크로 이슈 방지용 stringify)
+#define GREENEYE_MS_XSTR(s) #s
+#define GREENEYE_MS_STR(s) GREENEYE_MS_XSTR(s)
+#ifndef GREENEYE_MODULE_SERIAL
+#define GREENEYE_MODULE_SERIAL g10
+#endif
+static const char MODULE_SERIAL_BUF[] = GREENEYE_MS_STR(GREENEYE_MODULE_SERIAL);
+static const char *const MODULE_SERIAL = MODULE_SERIAL_BUF;
 
 /**
  * Cloudflare Tunnel: HTTP(S) ??origin greeneye-mosquitto:9001 (Mosquitto WebSockets)
@@ -369,6 +376,13 @@ void startMqttClient() {
 
 void setup() {
   Serial.begin(115200);
+  delay(200);
+  Serial.println();
+  Serial.println("======== GREENEYE BOOT ========");
+  Serial.printf("MODULE_SERIAL=%s  MQTT: greeneye/%s/cmd | greeneye/%s/status\n",
+                MODULE_SERIAL, MODULE_SERIAL, MODULE_SERIAL);
+  Serial.printf("build %s %s\n", __DATE__, __TIME__);
+  Serial.println("==============================");
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
   digitalWrite(PIN_TRIG, LOW);
