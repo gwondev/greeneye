@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
-import { moduleTypeLabel } from "../constants/wasteLabels";
+import { moduleTypeLabel, isGovModuleType } from "../constants/wasteLabels";
+import govPetDevicePhoto from "../assets/gwa_don_pet_1000.png";
 
 const KAKAO_APP_KEY = import.meta.env.VITE_KAKAO_API || import.meta.env.KAKAO_API || "";
 const KAKAO_SDK_URL = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`;
@@ -9,7 +10,19 @@ const TYPE_SYMBOLS = {
   CAN: "🥫",
   GENERAL: "🗑️",
   HAZARD: "☣️",
+  GOV_PET: "🧴",
+  GOV_CAN: "🥫",
 };
+
+/** 카카오 MarkerImage용 — GOV_CAN 전용(자산 없을 때 핀 형태) */
+const GOV_CAN_MARKER_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">
+    <path d="M22 2 L40 34 Q22 46 22 46 Q4 34 22 2 Z" fill="#142814" stroke="#e8d84a" stroke-width="2.2"/>
+    <rect x="11" y="13" width="22" height="24" rx="3" fill="#b8c4c8" stroke="#2a2a2a" stroke-width="1"/>
+    <text x="22" y="29" text-anchor="middle" font-size="9" font-weight="800" font-family="system-ui,sans-serif" fill="#1a1a1a">CAN</text>
+  </svg>`
+);
+const GOV_CAN_MARKER_URL = `data:image/svg+xml;charset=utf-8,${GOV_CAN_MARKER_SVG}`;
 
 /**
  * @param {[[number,number]|null]} props.userPos
@@ -125,25 +138,43 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
       const typeKey = String(m.type || "GENERAL").toUpperCase();
       const typeTitle = moduleTypeLabel(m.type);
       const typeSymbol = TYPE_SYMBOLS[typeKey] || "🗑️";
+      const isGov = isGovModuleType(m.type);
       const position = new window.kakao.maps.LatLng(m.lat, m.lon);
 
-      const marker = new window.kakao.maps.Marker({
+      let markerImage = null;
+      if (typeKey === "GOV_PET") {
+        const iw = 48;
+        const ih = 52;
+        const size = new window.kakao.maps.Size(iw, ih);
+        const opt = { offset: new window.kakao.maps.Point(iw / 2, ih) };
+        markerImage = new window.kakao.maps.MarkerImage(govPetDevicePhoto, size, opt);
+      } else if (typeKey === "GOV_CAN") {
+        const iw = 44;
+        const ih = 52;
+        const size = new window.kakao.maps.Size(iw, ih);
+        const opt = { offset: new window.kakao.maps.Point(iw / 2, ih) };
+        markerImage = new window.kakao.maps.MarkerImage(GOV_CAN_MARKER_URL, size, opt);
+      }
+
+      const markerOpts = {
         map,
         position,
         title: `${typeTitle} (${serial})`,
-      });
+      };
+      if (markerImage) markerOpts.image = markerImage;
+      const marker = new window.kakao.maps.Marker(markerOpts);
       markersRef.current.push(marker);
 
       const badge = document.createElement("div");
       badge.style.padding = "2px 6px";
       badge.style.borderRadius = "999px";
-      badge.style.border = "1px solid rgba(124,255,114,0.45)";
+      badge.style.border = isGov ? "1px solid rgba(232,216,74,0.55)" : "1px solid rgba(124,255,114,0.45)";
       badge.style.background = "rgba(0,0,0,0.8)";
-      badge.style.color = "#7CFF72";
+      badge.style.color = isGov ? "#f0e68c" : "#7CFF72";
       badge.style.fontWeight = "800";
       badge.style.fontSize = "11px";
       badge.style.whiteSpace = "nowrap";
-      badge.textContent = `${typeSymbol} ${typeTitle}`;
+      badge.textContent = isGov ? `🤝 협약 · ${typeSymbol} ${typeTitle}` : `${typeSymbol} ${typeTitle}`;
 
       const labelOverlay = new window.kakao.maps.CustomOverlay({
         position,
@@ -171,11 +202,44 @@ export default function MapView({ userPos, modules, onReady, hasHeldWaste = fals
         title.style.marginBottom = "4px";
         title.textContent = `${typeSymbol} ${typeTitle}`;
 
+        info.appendChild(title);
+
+        if (isGov) {
+          const govTag = document.createElement("div");
+          govTag.style.fontSize = "11px";
+          govTag.style.fontWeight = "700";
+          govTag.style.color = "rgba(240,230,140,0.95)";
+          govTag.style.marginBottom = "6px";
+          govTag.textContent = "기존 자원회수 장치(협약)";
+          info.appendChild(govTag);
+        }
+
+        if (typeKey === "GOV_PET") {
+          const photo = document.createElement("img");
+          photo.src = govPetDevicePhoto;
+          photo.alt = "협약 회수 장치";
+          photo.style.display = "block";
+          photo.style.width = "100%";
+          photo.style.maxHeight = "160px";
+          photo.style.objectFit = "contain";
+          photo.style.borderRadius = "8px";
+          photo.style.marginBottom = "8px";
+          photo.style.border = "1px solid rgba(232,216,74,0.35)";
+          info.appendChild(photo);
+        } else if (typeKey === "GOV_CAN") {
+          const note = document.createElement("div");
+          note.style.fontSize = "11px";
+          note.style.opacity = "0.85";
+          note.style.marginBottom = "8px";
+          note.style.lineHeight = "1.4";
+          note.textContent = "캔 전용 협약 회수함입니다. 현장 사진은 추후 연동할 수 있어요.";
+          info.appendChild(note);
+        }
+
         const status = document.createElement("div");
         status.style.opacity = "0.88";
         status.textContent = `${serial} · 상태 ${m.status || "—"}`;
 
-        info.appendChild(title);
         info.appendChild(status);
 
         if (m.totalDisposalCount != null) {

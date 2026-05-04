@@ -24,7 +24,7 @@ public class Module {
     private Double lon;
 
     @Column(name = "type", length = 10)
-    private String type; // PET, CAN, GENERAL
+    private String type; // PET, CAN, GENERAL, HAZARD, GOV_PET, GOV_CAN (GOV_* = 협약 기존 회수 장치)
 
     @Builder.Default
     @Column(name = "status", nullable = false, length = 10)

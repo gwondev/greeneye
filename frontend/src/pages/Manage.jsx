@@ -28,6 +28,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getUser } from "../services/auth";
 import { apiFetch } from "../services/api";
+import { moduleTypeLabel } from "../constants/wasteLabels";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -410,7 +411,12 @@ const Manage = () => {
                   <TableCell sx={cellBody}>{m.id}</TableCell>
                   <TableCell sx={cellBody}>{m.serialNumber}</TableCell>
                   <TableCell sx={cellBody}>{m.organization}</TableCell>
-                  <TableCell sx={cellBody}>{m.type}</TableCell>
+                  <TableCell sx={cellBody}>
+                    <Box component="span" sx={{ fontWeight: 700 }}>{m.type}</Box>
+                    <Box component="span" sx={{ display: "block", fontSize: "0.72rem", opacity: 0.78, mt: 0.25, lineHeight: 1.3 }}>
+                      {moduleTypeLabel(m.type)}
+                    </Box>
+                  </TableCell>
                   <TableCell sx={cellBody}>{m.status}</TableCell>
                   <TableCell sx={cellBody}>{m.lat}</TableCell>
                   <TableCell sx={cellBody}>{m.lon}</TableCell>
@@ -538,7 +544,15 @@ const Manage = () => {
             <TextField label="lat" value={moduleForm.lat} onChange={(e) => setModuleForm((f) => ({ ...f, lat: e.target.value }))} fullWidth sx={{ input: { color: "#fff" } }} />
             <TextField label="lon" value={moduleForm.lon} onChange={(e) => setModuleForm((f) => ({ ...f, lon: e.target.value }))} fullWidth sx={{ input: { color: "#fff" } }} />
           </Stack>
-          <TextField label="type (PET/CAN/GENERAL/HAZARD)" value={moduleForm.type} onChange={(e) => setModuleForm((f) => ({ ...f, type: e.target.value }))} fullWidth sx={{ input: { color: "#fff" } }} />
+          <TextField
+            label="type (PET/CAN/GENERAL/HAZARD/GOV_PET/GOV_CAN)"
+            value={moduleForm.type}
+            onChange={(e) => setModuleForm((f) => ({ ...f, type: e.target.value }))}
+            fullWidth
+            sx={{ input: { color: "#fff" } }}
+            helperText="GOV_* = 협약한 기존 자원회수 장치 (GOV_PET은 촬영 분류 PET과 매칭, GOV_CAN은 CAN)"
+            FormHelperTextProps={{ sx: { color: "rgba(255,255,255,0.55)" } }}
+          />
           <TextField
             label="count (totalDisposalCount)"
             type="number"

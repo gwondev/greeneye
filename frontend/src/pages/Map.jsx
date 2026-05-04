@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, useMemo, useRef } from "react";
+import { moduleTypeMatchesHeld } from "../constants/wasteLabels";
 import { Typography, Box, Paper, Stack, Button, Alert, Snackbar } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUser } from "../services/auth";
@@ -240,7 +241,7 @@ const Map = () => {
       return;
     }
     const mod = modules.find((x) => x.serialNumber === serialNumber);
-    if (mod && (mod.type || "GENERAL").toUpperCase() !== h) {
+    if (mod && !moduleTypeMatchesHeld(mod.type, h)) {
       alert(`Camera에서 선택한 분류(${h})와 같은 유형의 쓰레기통만 사용할 수 있습니다.`);
       return;
     }
@@ -284,7 +285,7 @@ const Map = () => {
     if (isLocalNoEnv) return modules;
     const h = (heldType || "").trim().toUpperCase();
     if (!h) return modules;
-    return modules.filter((m) => (m.type || "GENERAL").toUpperCase() === h);
+    return modules.filter((m) => moduleTypeMatchesHeld(m.type, h));
   }, [modules, heldType, isLocalNoEnv]);
 
   const heldTypeSummary = useMemo(() => {
