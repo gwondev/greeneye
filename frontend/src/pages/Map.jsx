@@ -285,15 +285,20 @@ const Map = () => {
           predictedType: selected,
         }),
       });
-      alert("READY 전송 완료");
       // 모듈 선택 후 들고 있던 쓰레기 분류는 소진된 것으로 간주하고 초기화
       sessionStorage.removeItem(HELD_KEY);
       setHeldType("");
       const data = await apiFetch("/modules");
       setModules(Array.isArray(data) ? data : []);
-      navigate("/input");
+      navigate("/input", {
+        replace: true,
+        state: {
+          serialNumber,
+          rewardsBaseline: Number(myRewards) || 0,
+        },
+      });
     } catch (e) {
-      alert("READY 전송 실패 (로컬은 백엔드·DB·닉네임 필요)");
+      alert("투입 요청에 실패했습니다. 네트워크·로그인·닉네임을 확인해 주세요.");
     }
   };
 

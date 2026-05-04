@@ -254,17 +254,20 @@ void handleIncomingCmdPayload(const char *payload) {
     Serial.println("JSON error");
     return;
   }
+  // issuedAt: 서버(ms) vs ESP(NTP 초→ms) 시차 흔함 — ±15초만 허용하면 정상 cmd도 '미래'로 버려짐
   if (!doc["issuedAt"].isNull()) {
     uint64_t issuedMs = (uint64_t)doc["issuedAt"].as<double>();
     if (issuedMs > 0) {
       time_t tsec = time(nullptr);
       if (tsec > 1700000000) {
         uint64_t nowMs = (uint64_t)tsec * 1000ULL;
-        if (issuedMs > nowMs + 15000ULL) {
-          Serial.println("cmd ignored (issuedAt in future)");
+        const uint64_t skewOk = 300000ULL;   // ±5분 시차 허용
+        const uint64_t staleMax = 600000ULL; // retain 등 10분 지난 cmd만 폐기
+        if (issuedMs > nowMs + skewOk) {
+          Serial.printf("cmd ignored issuedAt far future skew_ms=%lld\n", (long long)(issuedMs - nowMs));
           return;
         }
-        if (nowMs > issuedMs + 45000ULL) {
+        if (nowMs > issuedMs + staleMax) {
           Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n", (unsigned long long)(nowMs - issuedMs));
           return;
         }
