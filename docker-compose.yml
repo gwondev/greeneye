@@ -14,9 +14,8 @@ services:
     image: eclipse-mosquitto:2
     container_name: greeneye-mosquitto
     restart: always
-    ports:
-      - "1883:1883"
-      - "9001:9001"
+    # 호스트 1883/9001 미노출: gwon 등 다른 스택과 포트 충돌 방지.
+    # greeneye-backend → 같은 네트워크에서 mosquitto:1883 로 접속하면 됨.
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - mosquitto_data:/mosquitto/data
