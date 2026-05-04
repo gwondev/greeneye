@@ -22,7 +22,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class ModuleDisposalService {
-    private static final int DISPOSAL_REWARD = 5;
+    /** CHECK 완료(배출 검증 성공) 시 지급 포인트 */
+    private static final int DISPOSAL_REWARD = 10;
 
     private final ModuleRepository moduleRepository;
     private final UserRepository userRepository;

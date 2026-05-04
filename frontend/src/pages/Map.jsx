@@ -20,14 +20,6 @@ const HELD_TYPE_LABELS = {
   GENERAL: "일반쓰레기",
   HAZARD: "유해폐기물",
 };
-const ringAnim = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; }
-  100% { transform: translate(-50%, -50%) scale(4.8); opacity: 0; }
-`;
-const shockwaveAnim = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.1); opacity: 0.85; }
-  100% { transform: translate(-50%, -50%) scale(6.4); opacity: 0; }
-`;
 const ctaPulse = keyframes`
   0%, 100% { transform: translateY(0); box-shadow: 0 10px 34px rgba(124,255,114,0.34), 0 0 0 1px rgba(124,255,114,0.42); }
   50% { transform: translateY(-2px); box-shadow: 0 16px 48px rgba(124,255,114,0.48), 0 0 0 1px rgba(124,255,114,0.55); }
@@ -37,26 +29,17 @@ const ctaShine = keyframes`
   20% { opacity: 0.35; }
   100% { transform: translateX(220%); opacity: 0; }
 `;
-const centerBurst = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.18); opacity: 0; }
-  12% { transform: translate(-50%, -50%) scale(1.18); opacity: 1; }
-  70% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
+/** 리워드 획득: 짧고 절제된 피드백 */
+const rewardGlow = keyframes`
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.88); }
+  22% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
 `;
-const particleFloat = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
-  20% { opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) scale(1); opacity: 0; }
-`;
-const haloSpin = keyframes`
-  0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0; }
-  18% { opacity: 0.9; }
-  100% { transform: translate(-50%, -50%) rotate(180deg); opacity: 0; }
-`;
-const numberRise = keyframes`
-  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
-  22% { transform: translate(-50%, -50%) scale(1.02); opacity: 1; }
-  100% { transform: translate(-50%, calc(-50% - 26px)) scale(1); opacity: 0; }
+const rewardLabel = keyframes`
+  0% { opacity: 0; transform: scale(0.94) translateY(8px); }
+  16% { opacity: 1; transform: scale(1) translateY(0); }
+  78% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.98) translateY(-10px); }
 `;
 
 const Map = () => {
@@ -78,13 +61,13 @@ const Map = () => {
   const isLocalNoEnv = import.meta.env.DEV && !String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
   const fireRewardEffect = (delta) => {
-    const raw = Number(delta || 0);
-    const amount = raw === 1 || raw === 5 ? raw : 0;
+    const raw = Math.floor(Number(delta || 0));
+    const amount = raw === 1 || raw === 10 ? raw : 0;
     if (amount <= 0) return;
     setRewardDelta(amount);
     setRewardToast(`리워드 +${amount} 획득!`);
     setRewardBurst(true);
-    setTimeout(() => setRewardBurst(false), 1900);
+    setTimeout(() => setRewardBurst(false), 1350);
   };
 
   useEffect(() => {
@@ -166,6 +149,9 @@ const Map = () => {
           setMyRewards((prev) => {
             if (!rewardReadyRef.current) {
               rewardReadyRef.current = true;
+              if (nextRewards > prev) {
+                fireRewardEffect(nextRewards - prev);
+              }
               return nextRewards;
             }
             if (nextRewards > prev) {
@@ -194,6 +180,9 @@ const Map = () => {
           setMyRewards((prev) => {
             if (!rewardReadyRef.current) {
               rewardReadyRef.current = true;
+              if (nextRewards > prev) {
+                fireRewardEffect(nextRewards - prev);
+              }
               return nextRewards;
             }
             if (nextRewards > prev) {
@@ -391,13 +380,13 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: "50%",
-              width: { xs: 210, sm: 280 },
-              height: { xs: 210, sm: 280 },
+              width: { xs: 112, sm: 128 },
+              height: { xs: 112, sm: 128 },
               borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(124,255,114,0.28) 0%, rgba(124,255,114,0.08) 45%, rgba(124,255,114,0) 75%)",
               transform: "translate(-50%, -50%)",
-              animation: `${centerBurst} 1.8s ease-out`,
-              filter: "blur(1px)",
+              background: "radial-gradient(circle, rgba(124,255,114,0.18) 0%, rgba(124,255,114,0.04) 58%, transparent 74%)",
+              boxShadow: "0 0 40px rgba(124,255,114,0.1)",
+              animation: `${rewardGlow} 1.1s ease-out forwards`,
               zIndex: 1488,
               pointerEvents: "none",
             }}
@@ -407,132 +396,38 @@ const Map = () => {
               position: "absolute",
               left: "50%",
               top: "50%",
-              width: { xs: 280, sm: 420 },
-              height: { xs: 280, sm: 420 },
-              borderRadius: "50%",
-              border: "8px solid rgba(124,255,114,0.95)",
-              transform: "translate(-50%, -50%)",
-              animation: `${ringAnim} 1.7s ease-out`,
-              zIndex: 1490,
-              pointerEvents: "none",
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              width: { xs: 210, sm: 290 },
-              height: { xs: 210, sm: 290 },
-              borderRadius: "50%",
-              border: "1.5px solid rgba(124,255,114,0.55)",
-              borderTopColor: "rgba(124,255,114,0)",
-              borderBottomColor: "rgba(124,255,114,0.15)",
-              animation: `${haloSpin} 1.55s ease-out`,
-              zIndex: 1490,
-              pointerEvents: "none",
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              width: { xs: 340, sm: 520 },
-              height: { xs: 340, sm: 520 },
-              borderRadius: "50%",
-              border: "4px solid rgba(236,255,145,0.75)",
-              transform: "translate(-50%, -50%)",
-              animation: `${shockwaveAnim} 1.7s ease-out`,
-              zIndex: 1489,
-              pointerEvents: "none",
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              color: "rgba(173,255,151,0.95)",
-              fontWeight: 900,
-              fontSize: { xs: "4.2rem", sm: "6.2rem" },
-              textShadow: "0 10px 40px rgba(124,255,114,0.72)",
-              transform: "translate(-50%, -50%)",
-              animation: `${centerBurst} 1.9s ease-out`,
               zIndex: 1491,
               pointerEvents: "none",
-            }}
-          >
-            ●
-          </Box>
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              color: "#7CFF72",
-              fontWeight: 900,
-              fontSize: { xs: "5.4rem", sm: "8rem" },
-              textShadow: "0 10px 40px rgba(124,255,114,0.78)",
+              textAlign: "center",
               transform: "translate(-50%, -50%)",
-              animation: `${numberRise} 1.9s ease-out`,
-              zIndex: 1491,
-              pointerEvents: "none",
             }}
           >
-            +{rewardDelta || 1}
+            <Box sx={{ animation: `${rewardLabel} 1.15s ease-out forwards` }}>
+              <Typography
+                sx={{
+                  color: "#c4f7b8",
+                  fontWeight: 800,
+                  fontSize: { xs: "2.45rem", sm: "2.8rem" },
+                  lineHeight: 1.05,
+                  letterSpacing: "-0.03em",
+                  textShadow: "0 2px 20px rgba(0,0,0,0.4)",
+                }}
+              >
+                +{rewardDelta || 0}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.35,
+                  color: "rgba(224,255,218,0.72)",
+                  fontWeight: 600,
+                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
+                  letterSpacing: "0.04em",
+                }}
+              >
+                리워드
+              </Typography>
+            </Box>
           </Box>
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              color: "#e8ffe1",
-              fontWeight: 800,
-              fontSize: { xs: "1.35rem", sm: "1.9rem" },
-              transform: "translate(-50%, calc(-50% + 106px))",
-              textShadow: "0 8px 30px rgba(124,255,114,0.55)",
-              animation: `${centerBurst} 1.9s ease-out`,
-              zIndex: 1491,
-              pointerEvents: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            리워드 획득!
-          </Box>
-          {[
-            ["-40%", "-140%"],
-            ["40%", "-140%"],
-            ["-140%", "-62%"],
-            ["140%", "-62%"],
-            ["-80%", "18%"],
-            ["80%", "18%"],
-            ["-10%", "-160%"],
-            ["10%", "-160%"],
-            ["-165%", "-8%"],
-            ["165%", "-8%"],
-          ].map(([tx, ty], idx) => (
-            <Box
-              key={`star-${idx}`}
-              sx={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: { xs: 9, sm: 12 },
-                height: { xs: 9, sm: 12 },
-                borderRadius: "50%",
-                background: idx % 3 === 0
-                  ? "linear-gradient(140deg, rgba(124,255,114,1), rgba(206,255,157,0.9))"
-                  : "linear-gradient(140deg, rgba(92,246,169,0.95), rgba(124,255,114,0.85))",
-                boxShadow: "0 0 20px rgba(124,255,114,0.65)",
-                zIndex: 1492,
-                pointerEvents: "none",
-                "--tx": tx,
-                "--ty": ty,
-                animation: `${particleFloat} 1.45s ease-out`,
-              }}
-            />
-          ))}
         </>
       )}
 
