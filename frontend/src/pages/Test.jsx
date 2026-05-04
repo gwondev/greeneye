@@ -1,6 +1,6 @@
 import { Box, Typography } from "@mui/material";
 
-/** 팀 구현용 플레이스홀더 — /test */
+/** 팀 구현용 플레이스홀더ㄴㄴ — /test */
 export default function Test() {
   return (
     <Box
