@@ -359,8 +359,10 @@ void startMqttClient() {
   esp_mqtt_client_config_t cfg = {};
   cfg.uri = MQTT_WS_URI;
   cfg.client_id = s_mqtt_client_id;
-  cfg.keepalive = 120;
-  cfg.disable_clean_session = false;
+  // WS(Cloudflare 등)는 유휴 시 연결을 끊는 경우가 많음 → PING을 자주 보내 끊김·cmd 유실을 줄임
+  cfg.keepalive = 30;
+  // clean session 끄면 동일 client_id 재접속 시 브로커가 QoS1 cmd를 세션에 묶어 둘 수 있음(끊긴 틈에 publish 된 경우)
+  cfg.disable_clean_session = true;
   cfg.disable_auto_reconnect = false;
   cfg.reconnect_timeout_ms = 8000;
   cfg.buffer_size = 4096;
