@@ -13,4 +13,6 @@ public interface DisposalRecordRepository extends JpaRepository<DisposalRecord, 
     List<DisposalRecord> findByModule_Id(Long moduleId);
 
     Optional<DisposalRecord> findFirstByUserAndModuleAndStatusOrderByCreatedAtDesc(User user, Module module, String status);
+
+    List<DisposalRecord> findAllByUserAndModuleAndStatus(User user, Module module, String status);
 }

@@ -114,6 +114,14 @@ public class ModuleController {
         module.setLastHeartbeat(LocalDateTime.now());
         moduleRepository.save(module);
 
+        /* 새 READY 전에 같은 모듈·유저의 미완료 PENDING 을 정리 — 이중 CHECK·중복 리워드 방지 */
+        disposalRecordRepository.findAllByUserAndModuleAndStatus(user, module, "PENDING").forEach((old) -> {
+            old.setStatus("FAILED");
+            old.setVerifiedAt(LocalDateTime.now());
+            old.setRewardAmount(0);
+            disposalRecordRepository.save(old);
+        });
+
         DisposalRecord record = DisposalRecord.builder()
                 .user(user)
                 .module(module)

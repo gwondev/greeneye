@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -14,6 +16,8 @@ public class ModuleIotMqttHandler {
 
     private final ModuleDisposalService moduleDisposalService;
     private final ObjectMapper objectMapper;
+    /** 동일 모듈에 CHECK MQTT 가 연속으로 오면 중복 처리 방지 (ms) */
+    private final ConcurrentHashMap<String, Long> lastCheckHandledMs = new ConcurrentHashMap<>();
 
     public void handleStatusPayload(String serialNumber, String payload) {
         try {
@@ -51,8 +55,16 @@ public class ModuleIotMqttHandler {
             log.warn("MQTT CHECK without userId serial={}", serialNumber);
             return;
         }
+        long now = System.currentTimeMillis();
+        String dedupeKey = serialNumber.trim().toLowerCase() + "|" + nickname.trim().toLowerCase();
+        Long lastMs = lastCheckHandledMs.get(dedupeKey);
+        if (lastMs != null && now - lastMs < 2500L) {
+            log.info("MQTT CHECK deduped serial={} user={} ({}ms since last success)", serialNumber, nickname, now - lastMs);
+            return;
+        }
         try {
             moduleDisposalService.completeDisposalCheck(serialNumber, nickname);
+            lastCheckHandledMs.put(dedupeKey, now);
         } catch (ResponseStatusException ex) {
             log.warn("MQTT CHECK not applied serial={} reason={}", serialNumber, ex.getReason());
         } catch (Exception e) {

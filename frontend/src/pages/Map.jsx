@@ -29,17 +29,26 @@ const ctaShine = keyframes`
   20% { opacity: 0.35; }
   100% { transform: translateX(220%); opacity: 0; }
 `;
-/** 리워드 획득: 짧고 절제된 피드백 */
-const rewardGlow = keyframes`
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.88); }
-  22% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+/** 리워드 전면 네온 */
+const neonVeil = keyframes`
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  100% { opacity: 0; }
 `;
-const rewardLabel = keyframes`
-  0% { opacity: 0; transform: scale(0.94) translateY(8px); }
-  16% { opacity: 1; transform: scale(1) translateY(0); }
-  78% { opacity: 1; transform: scale(1) translateY(0); }
-  100% { opacity: 0; transform: scale(0.98) translateY(-10px); }
+const neonRing = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+`;
+const neonTitle = keyframes`
+  0% { opacity: 0; transform: scale(0.88); filter: blur(8px); }
+  18% { opacity: 1; transform: scale(1); filter: blur(0); }
+  72% { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(1.04); filter: blur(4px); }
+`;
+const neonAmount = keyframes`
+  0% { opacity: 0; transform: scale(0.75); }
+  14% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.08); }
 `;
 
 const Map = () => {
@@ -58,16 +67,21 @@ const Map = () => {
   const [rewardToast, setRewardToast] = useState("");
   const [centerTrigger, setCenterTrigger] = useState(1);
   const rewardReadyRef = useRef(false);
+  const rewardEffectDedupeRef = useRef({ t: 0, delta: 0 });
   const isLocalNoEnv = import.meta.env.DEV && !String(import.meta.env.VITE_GOOGLE_CLIENT_ID || "").trim();
 
   const fireRewardEffect = (delta) => {
     const raw = Math.floor(Number(delta || 0));
     const amount = raw === 1 || raw === 10 ? raw : 0;
     if (amount <= 0) return;
+    const now = Date.now();
+    const d = rewardEffectDedupeRef.current;
+    if (d.delta === amount && now - d.t < 3000) return;
+    rewardEffectDedupeRef.current = { t: now, delta: amount };
     setRewardDelta(amount);
     setRewardToast(`리워드 +${amount} 획득!`);
     setRewardBurst(true);
-    setTimeout(() => setRewardBurst(false), 1350);
+    setTimeout(() => setRewardBurst(false), 2600);
   };
 
   useEffect(() => {
@@ -147,17 +161,19 @@ const Map = () => {
           const me = users.find((u) => u?.nickname === nick);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
+            const prevN = Number(prev) || 0;
+            const nextN = Number(nextRewards) || 0;
             if (!rewardReadyRef.current) {
               rewardReadyRef.current = true;
-              if (nextRewards > prev) {
-                fireRewardEffect(nextRewards - prev);
+              if (nextN > prevN) {
+                fireRewardEffect(nextN - prevN);
               }
-              return nextRewards;
+              return nextN;
             }
-            if (nextRewards > prev) {
-              fireRewardEffect(nextRewards - prev);
+            if (nextN > prevN) {
+              fireRewardEffect(nextN - prevN);
             }
-            return nextRewards;
+            return nextN;
           });
         }
       } catch (e) {
@@ -178,17 +194,19 @@ const Map = () => {
           const me = users.find((u) => u?.nickname === nick);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
+            const prevN = Number(prev) || 0;
+            const nextN = Number(nextRewards) || 0;
             if (!rewardReadyRef.current) {
               rewardReadyRef.current = true;
-              if (nextRewards > prev) {
-                fireRewardEffect(nextRewards - prev);
+              if (nextN > prevN) {
+                fireRewardEffect(nextN - prevN);
               }
-              return nextRewards;
+              return nextN;
             }
-            if (nextRewards > prev) {
-              fireRewardEffect(nextRewards - prev);
+            if (nextN > prevN) {
+              fireRewardEffect(nextN - prevN);
             }
-            return nextRewards;
+            return nextN;
           });
         }
       } catch {
@@ -287,6 +305,106 @@ const Map = () => {
   const hasHeldWaste = Boolean((heldType || sessionStorage.getItem(HELD_KEY) || "").trim());
   return (
     <>
+      {rewardBurst && (
+        <Box
+          sx={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 20000,
+            pointerEvents: "none",
+            display: "grid",
+            placeItems: "center",
+            overflow: "hidden",
+            animation: `${neonVeil} 2.5s ease-out forwards`,
+            bgcolor: "rgba(3,4,3,0.55)",
+          }}
+        >
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(140vw, 140vh)",
+              height: "min(140vw, 140vh)",
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(124,255,114,0.35) 0%, rgba(124,255,114,0.08) 38%, transparent 62%)",
+              filter: "blur(2px)",
+              animation: `${neonRing} 2.2s ease-out forwards`,
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(110vw, 110vh)",
+              height: "min(110vw, 110vh)",
+              borderRadius: "50%",
+              border: "2px solid rgba(124,255,114,0.55)",
+              boxShadow: "0 0 80px rgba(124,255,114,0.35), inset 0 0 60px rgba(124,255,114,0.12)",
+              animation: `${neonRing} 1.95s ease-out 0.08s forwards`,
+            }}
+          />
+          <Box
+            sx={{
+              position: "relative",
+              zIndex: 2,
+              textAlign: "center",
+              px: 2,
+              maxWidth: "96vw",
+              animation: `${neonTitle} 2.45s ease-out forwards`,
+            }}
+          >
+            <Typography
+              component="div"
+              sx={{
+                fontWeight: 900,
+                fontSize: { xs: "clamp(2.8rem, 14vw, 5.5rem)", sm: "clamp(3.2rem, 11vw, 6.2rem)" },
+                letterSpacing: { xs: "0.28em", sm: "0.34em" },
+                color: "#7CFF72",
+                textTransform: "uppercase",
+                lineHeight: 1.05,
+                textShadow:
+                  "0 0 20px rgba(124,255,114,0.95), 0 0 60px rgba(124,255,114,0.55), 0 0 120px rgba(124,255,114,0.35)",
+              }}
+            >
+              REWARD
+            </Typography>
+            <Stack
+              direction="row"
+              justifyContent="center"
+              alignItems="baseline"
+              spacing={{ xs: 3, sm: 5 }}
+              sx={{ mt: { xs: 2.5, sm: 3 }, animation: `${neonAmount} 2.35s ease-out 0.12s forwards` }}
+            >
+              <Typography
+                sx={{
+                  fontWeight: 900,
+                  fontSize: { xs: "clamp(2.4rem, 12vw, 4.5rem)", sm: "clamp(2.8rem, 9vw, 5rem)" },
+                  color: rewardDelta === 1 ? "#e8ffe8" : "rgba(124,255,114,0.28)",
+                  textShadow: rewardDelta === 1 ? "0 0 28px rgba(124,255,114,0.9), 0 0 70px rgba(124,255,114,0.45)" : "none",
+                  lineHeight: 1,
+                }}
+              >
+                +1
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 900,
+                  fontSize: { xs: "clamp(2.4rem, 12vw, 4.5rem)", sm: "clamp(2.8rem, 9vw, 5rem)" },
+                  color: rewardDelta === 10 ? "#e8ffe8" : "rgba(124,255,114,0.28)",
+                  textShadow: rewardDelta === 10 ? "0 0 32px rgba(124,255,114,1), 0 0 90px rgba(124,255,114,0.5)" : "none",
+                  lineHeight: 1,
+                }}
+              >
+                +10
+              </Typography>
+            </Stack>
+          </Box>
+        </Box>
+      )}
     <Box
       sx={{
         position: "relative",
@@ -373,64 +491,6 @@ const Map = () => {
           리워드마켓
         </Button>
       </Stack>
-      {rewardBurst && (
-        <>
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              width: { xs: 112, sm: 128 },
-              height: { xs: 112, sm: 128 },
-              borderRadius: "50%",
-              transform: "translate(-50%, -50%)",
-              background: "radial-gradient(circle, rgba(124,255,114,0.18) 0%, rgba(124,255,114,0.04) 58%, transparent 74%)",
-              boxShadow: "0 0 40px rgba(124,255,114,0.1)",
-              animation: `${rewardGlow} 1.1s ease-out forwards`,
-              zIndex: 1488,
-              pointerEvents: "none",
-            }}
-          />
-          <Box
-            sx={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              zIndex: 1491,
-              pointerEvents: "none",
-              textAlign: "center",
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            <Box sx={{ animation: `${rewardLabel} 1.15s ease-out forwards` }}>
-              <Typography
-                sx={{
-                  color: "#c4f7b8",
-                  fontWeight: 800,
-                  fontSize: { xs: "2.45rem", sm: "2.8rem" },
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.03em",
-                  textShadow: "0 2px 20px rgba(0,0,0,0.4)",
-                }}
-              >
-                +{rewardDelta || 0}
-              </Typography>
-              <Typography
-                sx={{
-                  mt: 0.35,
-                  color: "rgba(224,255,218,0.72)",
-                  fontWeight: 600,
-                  fontSize: { xs: "0.8rem", sm: "0.88rem" },
-                  letterSpacing: "0.04em",
-                }}
-              >
-                리워드
-              </Typography>
-            </Box>
-          </Box>
-        </>
-      )}
-
       {!isLocalNoEnv && heldType && modules.length > modulesForMap.length && (
         <Alert
           severity="info"
@@ -821,7 +881,7 @@ const Map = () => {
     </Box>
       <Snackbar
         open={Boolean(rewardToast)}
-        autoHideDuration={2200}
+        autoHideDuration={2800}
         onClose={() => setRewardToast("")}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
         message={rewardToast}
