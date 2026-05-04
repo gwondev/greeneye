@@ -30,6 +30,40 @@ public class UserController {
         return userRepository.findAll();
     }
 
+    /**
+     * 지도 페이지로 들어올 때 1회만 +1 (유저별). 실제 배출 검증 10점은 CHECK(MQTT) 완료 시에만 {@link com.greeneye.backend.service.ModuleDisposalService}.
+     */
+    @PostMapping("/claim-map-entry-reward")
+    @Transactional
+    public Map<String, Object> claimMapEntryReward(@RequestBody Map<String, String> body) {
+        String oauthId = body.get("oauthId");
+        if (oauthId == null || oauthId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
+        }
+        User user = userRepository.findByOauthId(oauthId.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (user.isMapEntryRewardClaimed()) {
+            return Map.of(
+                    "ok", true,
+                    "reward", 0,
+                    "alreadyClaimed", true,
+                    "nowRewards", user.getNowRewards(),
+                    "totalRewards", user.getTotalRewards()
+            );
+        }
+        user.setMapEntryRewardClaimed(true);
+        user.setNowRewards(user.getNowRewards() + 1);
+        user.setTotalRewards(user.getTotalRewards() + 1);
+        userRepository.save(user);
+        return Map.of(
+                "ok", true,
+                "reward", 1,
+                "alreadyClaimed", false,
+                "nowRewards", user.getNowRewards(),
+                "totalRewards", user.getTotalRewards()
+        );
+    }
+
     @PutMapping("/{id}")
     @Transactional
     public User updateUser(@PathVariable Long id, @RequestBody Map<String, Object> body) {

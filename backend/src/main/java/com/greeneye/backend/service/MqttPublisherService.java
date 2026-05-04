@@ -109,15 +109,23 @@ public class MqttPublisherService {
     }
 
     public void publish(String topic, String payload) {
+        publish(topic, payload, false);
+    }
+
+    /**
+     * @param retained true면 브로커가 마지막 메시지를 유지 — 구독 직후에도 전달(WS 끊김으로 cmd 유실 완화). IoT는 stale 판별용 필드와 함께 쓸 것.
+     */
+    public void publish(String topic, String payload, boolean retained) {
         MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
         message.setQos(1);
+        message.setRetained(retained);
         try {
             synchronized (clientLock) {
                 connectIfNeeded();
                 // QoS1: 동기 publish는 브로커 PUBACK까지 기다린 뒤 반환되는 경우가 많음 → 실제 전달 시도 완료 후에만 아래 로그
                 client.publish(topic, message);
             }
-            log.info("MQTT publish OK (broker accepted) topic={}", topic);
+            log.info("MQTT publish OK (broker accepted) topic={} retained={}", topic, retained);
             mqttTrafficLogService.add("OUT", topic, payload);
         } catch (MqttException e) {
             log.warn("MQTT publish failed, one reconnect retry. topic={}", topic, e);
@@ -127,7 +135,7 @@ public class MqttPublisherService {
                     connectIfNeeded();
                     client.publish(topic, message);
                 }
-                log.info("MQTT publish OK after retry topic={}", topic);
+                log.info("MQTT publish OK after retry topic={} retained={}", topic, retained);
                 mqttTrafficLogService.add("OUT", topic, payload);
             } catch (MqttException e2) {
                 mqttTrafficLogService.add("OUT_ERR", topic, payload);

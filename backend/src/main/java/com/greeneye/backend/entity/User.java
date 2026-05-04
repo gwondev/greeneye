@@ -53,6 +53,10 @@ public class User {
     @Column(name = "last_camera_at")
     private LocalDateTime lastCameraAt;
 
+    /** 맵(지도) API 최초 진입 시 +1 리워드 1회만 지급했는지 */
+    @Column(name = "map_entry_reward_claimed", nullable = false)
+    private boolean mapEntryRewardClaimed = false;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

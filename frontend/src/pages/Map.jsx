@@ -176,6 +176,20 @@ const Map = () => {
             return nextN;
           });
         }
+        try {
+          const claim = await apiFetch("/users/claim-map-entry-reward", {
+            method: "POST",
+            body: JSON.stringify({ oauthId: user?.oauthId }),
+          });
+          if (claim?.reward === 1) {
+            fireRewardEffect(1);
+          }
+          if (typeof claim?.nowRewards === "number") {
+            setMyRewards(Number(claim.nowRewards));
+          }
+        } catch {
+          /* 맵 진입 1회 리워드는 부가 기능 */
+        }
       } catch (e) {
         setError("모듈 목록을 불러오지 못했습니다.");
       } finally {

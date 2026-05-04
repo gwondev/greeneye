@@ -254,6 +254,23 @@ void handleIncomingCmdPayload(const char *payload) {
     Serial.println("JSON error");
     return;
   }
+  if (!doc["issuedAt"].isNull()) {
+    uint64_t issuedMs = (uint64_t)doc["issuedAt"].as<double>();
+    if (issuedMs > 0) {
+      time_t tsec = time(nullptr);
+      if (tsec > 1700000000) {
+        uint64_t nowMs = (uint64_t)tsec * 1000ULL;
+        if (issuedMs > nowMs + 15000ULL) {
+          Serial.println("cmd ignored (issuedAt in future)");
+          return;
+        }
+        if (nowMs > issuedMs + 45000ULL) {
+          Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n", (unsigned long long)(nowMs - issuedMs));
+          return;
+        }
+      }
+    }
+  }
   const char *uid = doc["userId"];
   if (!uid || !uid[0]) {
     uid = doc["nickname"];

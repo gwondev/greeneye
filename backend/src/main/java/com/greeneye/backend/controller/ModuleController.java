@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -128,15 +129,17 @@ public class ModuleController {
                 .predictedType(body.get("predictedType"))
                 .selectedType(body.get("selectedType"))
                 .imageUrl(body.get("imageUrl"))
-                .rewardAmount(1)
+                .rewardAmount(0)
                 .status("PENDING")
                 .createdAt(LocalDateTime.now())
                 .build();
         disposalRecordRepository.save(record);
 
         String topic = GreeneyeMqttTopics.cmd(serialNumber);
-        String payload = "{\"userId\":\"" + escapeJson(nickname) + "\"}";
-        mqttPublisherService.publish(topic, payload);
+        long issuedAt = System.currentTimeMillis();
+        String payload = String.format(Locale.US, "{\"userId\":\"%s\",\"issuedAt\":%d}",
+                escapeJson(nickname), issuedAt);
+        mqttPublisherService.publish(topic, payload, true);
 
         return Map.of("ok", true, "moduleStatus", module.getStatus(), "recordId", record.getId());
     }
