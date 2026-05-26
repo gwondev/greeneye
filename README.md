@@ -477,5 +477,5 @@ LED 신호 (RGB PWM, R=25/G=26/B=27):
 
 ## License
 
-본 저장소는 학부 캡스톤(산학프로젝트) 산출물로 공개되며, 상업적 이용 전 팀에 문의 바랍니다.
-프로젝트 문의: <https://github.com/gwondev/greeneye/issues>
+본 저장소는 학부 캡스톤(산학프로젝트) 산출물로 공개되며, 상업적 이용 전 팀에 문의 바랍니다
+프로젝트 문의: gwondev0323@gmail.com
