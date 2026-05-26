@@ -4,7 +4,7 @@
 > 폐기물 이미지를 **AI**가 분류하고, **IoT 모듈**이 실제 투입을 검증하면 **리워드**를 즉시 지급하는 통합 자원순환 서비스.
 
 **서비스 URL**: <https://greeneye.gwon.run>
-**저장소**: <https://github.com/gwondev/greeneye>
+**GIT 저장소**: <https://github.com/gwondev/greeneye>
 
 ---
 
