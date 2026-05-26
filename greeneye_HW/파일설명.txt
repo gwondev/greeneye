@@ -1,0 +1,2 @@
+greeneye_modeling(OpenSCAD) : 하드웨어 케이스 모델링 파일 원본
+greeneye_modeling(STL FILE) : 원본을 STL파일로 변환한 파일
