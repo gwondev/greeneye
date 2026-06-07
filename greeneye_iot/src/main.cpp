@@ -39,15 +39,14 @@ static const int PIN_LED_B = 27;
 // FULL: 椰꾧퀡??10cm 沃섎챶彛??1??볦퍢 ?怨쀫꺗 ?醫??????춸 ?袁れ넎
 static const unsigned long FULL_DETECT_MS = 60UL * 60UL * 1000UL;  // 1 hour
 static const float FULL_NEAR_CM = 10.0f;
-// READY: baseline 대비 조금만 변해도 즉시 CHECK (가까워짐/멀어짐 모두 인정)
-static const float READY_DELTA_CM = 1.0f;
-static const int READY_DROP_TICKS_REQUIRED = 1;
+// READY: baseline·직전 샘플·에코 소실 중 하나만 만족해도 즉시 CHECK
+static const float READY_DELTA_CM = 0.5f;
 static const uint32_t LEDC_FREQ_HZ = 10000;  // high-frequency PWM for stable color
 static const uint8_t LEDC_RES_BITS = 8;
 static const int LEDC_CH_R = 0;
 static const int LEDC_CH_G = 1;
 static const int LEDC_CH_B = 2;
-static const unsigned long ULTRA_PING_INTERVAL_MS = 25;
+static const unsigned long ULTRA_PING_INTERVAL_MS = 15;
 static const unsigned long ULTRA_LOG_INTERVAL_MS = 10000UL;  // 10s
 
 static esp_mqtt_client_handle_t s_mqtt = nullptr;
@@ -93,7 +92,7 @@ static unsigned long s_lastUltraLogMs = 0;
 static float s_lastDistCm = -1.0f;
 /** ?λ뜆?????筌β돦?????륁궞 ???춳??筌앹빓? (loop 20ms?? ?얜떯???띿쓺 1??1??묐탣) */
 static uint32_t s_ultraSampleSeq = 0;
-static int s_readyDropStreak = 0;
+static float s_readyPrevCm = -1.0f;
 /** READY 筌욊쑴??筌욊낱????살삋??s_lastDistCm??곗쨮 ?怨쀪텦??? ??낅즲嚥?筌띾뜆?筌?筌ｌ꼶?????묐탣 甕곕뜇??*/
 static uint32_t s_readyLastProcessedUltraSeq = 0;
 
@@ -123,7 +122,7 @@ void enterDefaultIdle() {
   fullSent = false;
   readyBaselineCm = -1.0f;
   readyBaselineSet = false;
-  s_readyDropStreak = 0;
+  s_readyPrevCm = -1.0f;
 }
 
 /** HC-SR04?? ??쎈솭 ??-1, ?醫륁뒞 ??cm (????2~400) */
@@ -246,15 +245,15 @@ void armReady(const char *nick) {
   strncpy(pendingNickname, nick, sizeof(pendingNickname) - 1);
   pendingNickname[sizeof(pendingNickname) - 1] = '\0';
   deviceMode = MODE_READY_WAIT;
-  readyDeadlineMs = millis() + 30000UL;
+  readyDeadlineMs = millis() + 10000UL;
   applyReadyYellowVivid();
   fullDetectStartMs = 0;
   readyBaselineCm = -1.0f;
   readyBaselineSet = false;
-  s_readyDropStreak = 0;
+  s_readyPrevCm = -1.0f;
   s_readyLastProcessedUltraSeq = s_ultraSampleSeq;
-  Serial.printf(">>> READY 30s, userId=%s (|delta|>=%.1fcm x %d tick -> CHECK)\n",
-                pendingNickname, (double)READY_DELTA_CM, READY_DROP_TICKS_REQUIRED);
+  Serial.printf(">>> READY 10s, userId=%s (|delta|>=%.1fcm -> CHECK)\n",
+                pendingNickname, (double)READY_DELTA_CM);
 }
 
 void handleIncomingCmdPayload(const char *payload) {
@@ -535,30 +534,38 @@ void loop() {
     if (!readyBaselineSet) {
       readyBaselineCm = cm;
       readyBaselineSet = true;
+      s_readyPrevCm = cm;
       Serial.printf("[READY] baseline=%.1f cm\n", readyBaselineCm);
     } else {
-      float delta = fabsf(cm - readyBaselineCm);
-      if (delta >= READY_DELTA_CM) {
-        s_readyDropStreak++;
-      } else {
-        s_readyDropStreak = 0;
-      }
+      float deltaBase = fabsf(cm - readyBaselineCm);
+      float prevCm = s_readyPrevCm;
+      float deltaPrev = (prevCm >= 0.0f) ? fabsf(cm - prevCm) : 0.0f;
+      bool motion = deltaBase >= READY_DELTA_CM || deltaPrev >= READY_DELTA_CM;
+      s_readyPrevCm = cm;
 
-      if (s_readyDropStreak >= READY_DROP_TICKS_REQUIRED) {
-        Serial.printf(">>> CHECK trigger delta=%.1f (base=%.1f now=%.1f, streak=%d)\n",
-                      (double)delta, (double)readyBaselineCm, (double)cm, s_readyDropStreak);
+      if (motion) {
+        Serial.printf(">>> CHECK trigger base=%.1f prev=%.1f now=%.1f (dBase=%.1f dPrev=%.1f)\n",
+                      (double)readyBaselineCm, (double)prevCm, (double)cm,
+                      (double)deltaBase, (double)deltaPrev);
         publishStatusCheck();
         deviceMode = MODE_CHECK_SHOW;
         applyRgb(false, true, false);  // GREEN
         greenUntilMs = readyDeadlineMs;
         pendingNickname[0] = '\0';
-        s_readyDropStreak = 0;
         delay(20);
         return;
       }
     }
-  } else {
-    s_readyDropStreak = 0;
+  } else if (readyBaselineSet) {
+    // 에코 미수신 = 물체가 센서 앞을 스쳐 지나감
+    Serial.println(">>> CHECK trigger echo lost (fast pass)");
+    publishStatusCheck();
+    deviceMode = MODE_CHECK_SHOW;
+    applyRgb(false, true, false);  // GREEN
+    greenUntilMs = readyDeadlineMs;
+    pendingNickname[0] = '\0';
+    delay(20);
+    return;
   }
 
   if (millis() >= readyDeadlineMs) {
