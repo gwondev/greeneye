@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <mqtt_client.h>
+#include <esp_sntp.h>
 #include <time.h>
 
 // ========== 모듈 ID (DB modules.serial_number, MQTT greeneye/<id>/…) ==========
@@ -53,6 +54,12 @@ static esp_mqtt_client_handle_t s_mqtt = nullptr;
 static volatile bool s_mqtt_connected = false;
 /** ?됰슢以덅??怨뚭퍙 ?袁⑹뒠 ID (?醫뤿동??g1 ??癰귢쑨而?. ??덉뵬 ID ??덈뻻 ?臾믩꺗 ??"session taken over" 嚥?cmd ?醫롫뼄 揶쎛????MAC??곗쨮 ?醫롮뵬??*/
 static char s_mqtt_client_id[28] = "";
+static char s_topicCmd[48] = "";
+static char s_topicStatus[52] = "";
+static uint64_t s_lastCmdIssuedAt = 0;
+static char s_mqttDataAccum[384];
+static int s_mqttDataAccumLen = 0;
+static char s_mqttTopicAccum[160];
 
 static void buildMqttClientId() {
   uint64_t mac = ESP.getEfuseMac();
@@ -90,8 +97,10 @@ static int s_readyDropStreak = 0;
 /** READY 筌욊쑴??筌욊낱????살삋??s_lastDistCm??곗쨮 ?怨쀪텦??? ??낅즲嚥?筌띾뜆?筌?筌ｌ꼶?????묐탣 甕곕뜇??*/
 static uint32_t s_readyLastProcessedUltraSeq = 0;
 
-String topicCmd() { return String("greeneye/") + MODULE_SERIAL + "/cmd"; }
-String topicStatus() { return String("greeneye/") + MODULE_SERIAL + "/status"; }
+static void buildMqttTopics() {
+  snprintf(s_topicCmd, sizeof(s_topicCmd), "greeneye/%s/cmd", MODULE_SERIAL);
+  snprintf(s_topicStatus, sizeof(s_topicStatus), "greeneye/%s/status", MODULE_SERIAL);
+}
 
 void rgbPwm(uint8_t r, uint8_t g, uint8_t b) {
   ledcWrite(LEDC_CH_R, r);
@@ -209,7 +218,7 @@ void publishStatusCheck() {
   StaticJsonDocument<160> doc;
   doc["status"] = "CHECK";
   doc["userId"] = pendingNickname;
-  publishDoc(topicStatus().c_str(), doc);
+  publishDoc(s_topicStatus, doc);
   Serial.println(">>> status CHECK");
 }
 
@@ -217,7 +226,7 @@ void publishStatusReadyTimeout() {
   StaticJsonDocument<160> doc;
   doc["status"] = "READY";
   doc["userId"] = pendingNickname;
-  publishDoc(topicStatus().c_str(), doc);
+  publishDoc(s_topicStatus, doc);
   Serial.println(">>> status READY (timeout)");
 }
 
@@ -225,7 +234,7 @@ void publishStatusFull() {
   StaticJsonDocument<160> doc;
   doc["status"] = "FULL";
   doc["moduleSerial"] = MODULE_SERIAL;
-  publishDoc(topicStatus().c_str(), doc);
+  publishDoc(s_topicStatus, doc);
   Serial.println(">>> status FULL");
 }
 
@@ -254,21 +263,25 @@ void handleIncomingCmdPayload(const char *payload) {
     Serial.println("JSON error");
     return;
   }
-  // issuedAt: 서버(ms) vs ESP(NTP 초→ms) 시차 흔함 — ±15초만 허용하면 정상 cmd도 '미래'로 버려짐
+  uint64_t issuedMs = 0;
   if (!doc["issuedAt"].isNull()) {
-    uint64_t issuedMs = (uint64_t)doc["issuedAt"].as<double>();
-    if (issuedMs > 0) {
+    issuedMs = (uint64_t)doc["issuedAt"].as<double>();
+  }
+  if (issuedMs > 0) {
+    if (issuedMs <= s_lastCmdIssuedAt) {
+      Serial.printf("cmd ignored duplicate issuedAt=%llu last=%llu\n",
+                    (unsigned long long)issuedMs, (unsigned long long)s_lastCmdIssuedAt);
+      return;
+    }
+    // NTP 동기화된 경우에만 오래된 retained(재부팅 직후) 폐기. 시계 '미래' 검사는 ESP 시차로 정상 cmd가 버려져 제거.
+    if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
       time_t tsec = time(nullptr);
       if (tsec > 1700000000) {
         uint64_t nowMs = (uint64_t)tsec * 1000ULL;
-        const uint64_t skewOk = 300000ULL;   // ±5분 시차 허용
-        const uint64_t staleMax = 600000ULL; // retain 등 10분 지난 cmd만 폐기
-        if (issuedMs > nowMs + skewOk) {
-          Serial.printf("cmd ignored issuedAt far future skew_ms=%lld\n", (long long)(issuedMs - nowMs));
-          return;
-        }
+        const uint64_t staleMax = 600000ULL;  // 10분 지난 retained cmd
         if (nowMs > issuedMs + staleMax) {
-          Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n", (unsigned long long)(nowMs - issuedMs));
+          Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n",
+                        (unsigned long long)(nowMs - issuedMs));
           return;
         }
       }
@@ -281,6 +294,9 @@ void handleIncomingCmdPayload(const char *payload) {
   if (!uid || !uid[0]) {
     Serial.println("no userId/nickname");
     return;
+  }
+  if (issuedMs > 0) {
+    s_lastCmdIssuedAt = issuedMs;
   }
   armReady(uid);
 }
@@ -298,18 +314,17 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     case MQTT_EVENT_CONNECTED:
       Serial.println("MQTT_EVENT_CONNECTED (WS)");
       s_mqtt_connected = true;
+      s_mqttDataAccumLen = 0;
       if (deviceMode == MODE_FULL || fullSent) {
         publishStatusFull();
       }
-      {
-        String tc = topicCmd();
-        esp_mqtt_client_subscribe(s_mqtt, tc.c_str(), 1);
-        Serial.printf("sub %s\n", tc.c_str());
-      }
+      esp_mqtt_client_subscribe(s_mqtt, s_topicCmd, 1);
+      Serial.printf("sub %s\n", s_topicCmd);
       break;
 
     case MQTT_EVENT_DISCONNECTED: {
       s_mqtt_connected = false;
+      s_mqttDataAccumLen = 0;
       if (event->error_handle) {
         Serial.printf("MQTT_EVENT_DISCONNECTED type=%d esp_tls=%d sock_errno=%d\n",
                         (int)event->error_handle->error_type,
@@ -326,26 +341,35 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
       break;
 
     case MQTT_EVENT_DATA: {
-      char topicBuf[160];
-      int tl = event->topic_len;
-      if (tl >= (int)sizeof(topicBuf)) {
-        tl = sizeof(topicBuf) - 1;
+      if (event->topic_len > 0) {
+        int tl = event->topic_len;
+        if (tl >= (int)sizeof(s_mqttTopicAccum)) {
+          tl = sizeof(s_mqttTopicAccum) - 1;
+        }
+        memcpy(s_mqttTopicAccum, event->topic, tl);
+        s_mqttTopicAccum[tl] = '\0';
+        s_mqttDataAccumLen = 0;
       }
-      memcpy(topicBuf, event->topic, tl);
-      topicBuf[tl] = '\0';
 
-      char dataBuf[384];
-      int dl = event->data_len;
-      if (dl >= (int)sizeof(dataBuf)) {
-        dl = sizeof(dataBuf) - 1;
+      int offset = event->current_data_offset;
+      int chunk = event->data_len;
+      if (offset < 0 || chunk < 0 || offset + chunk >= (int)sizeof(s_mqttDataAccum)) {
+        Serial.println("[MQTT] cmd payload too large");
+        s_mqttDataAccumLen = 0;
+        break;
       }
-      memcpy(dataBuf, event->data, dl);
-      dataBuf[dl] = '\0';
+      memcpy(s_mqttDataAccum + offset, event->data, chunk);
+      s_mqttDataAccumLen = offset + chunk;
+      if (s_mqttDataAccumLen < event->total_data_len) {
+        break;
+      }
+      s_mqttDataAccum[s_mqttDataAccumLen] = '\0';
 
-      Serial.printf("[MQTT] %s %s\n", topicBuf, dataBuf);
-      if (strstr(topicBuf, "/cmd") != nullptr) {
-        handleIncomingCmdPayload(dataBuf);
+      Serial.printf("[MQTT] %s %s\n", s_mqttTopicAccum, s_mqttDataAccum);
+      if (strstr(s_mqttTopicAccum, "/cmd") != nullptr) {
+        handleIncomingCmdPayload(s_mqttDataAccum);
       }
+      s_mqttDataAccumLen = 0;
       break;
     }
 
@@ -379,12 +403,14 @@ void startMqttClient() {
   esp_mqtt_client_config_t cfg = {};
   cfg.uri = MQTT_WS_URI;
   cfg.client_id = s_mqtt_client_id;
-  // WS(Cloudflare 등)는 유휴 시 연결을 끊는 경우가 많음 → PING을 자주 보내 끊김·cmd 유실을 줄임
-  cfg.keepalive = 30;
-  // clean session 끄면 동일 client_id 재접속 시 브로커가 QoS1 cmd를 세션에 묶어 둘 수 있음(끊긴 틈에 publish 된 경우)
-  cfg.disable_clean_session = true;
+  // Cloudflare WS: 유휴·PING 미응답 시 반쪽 연결(zombie) → 구독은 됐는데 live cmd가 안 옴. 짧은 keepalive + 주기적 refresh.
+  cfg.keepalive = 15;
+  cfg.refresh_connection_after_ms = 120000;
+  // cmd는 서버가 retained=true로 publish → clean session이어도 구독 직후 마지막 cmd 수신. persistent session은 zombie·session taken over 유발.
+  cfg.disable_clean_session = false;
   cfg.disable_auto_reconnect = false;
-  cfg.reconnect_timeout_ms = 8000;
+  cfg.reconnect_timeout_ms = 5000;
+  cfg.network_timeout_ms = 10000;
   cfg.buffer_size = 4096;
   Serial.printf("[MQTT] client start uri=%s id=%s (topic cmd still greeneye/%s/cmd)\n",
                 cfg.uri, cfg.client_id, MODULE_SERIAL);
@@ -431,7 +457,9 @@ void setup() {
   Serial.printf("time=%ld\n", (long)time(nullptr));
   Serial.printf("MQTT WS URI: %s\n", MQTT_WS_URI);
   buildMqttClientId();
+  buildMqttTopics();
   Serial.printf("[MQTT] broker client_id=%s\n", s_mqtt_client_id);
+  Serial.printf("[MQTT] topics cmd=%s status=%s\n", s_topicCmd, s_topicStatus);
   startMqttClient();
 }
 
