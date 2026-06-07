@@ -133,7 +133,7 @@ public class AiController {
         result.put("model", geminiModel);
         result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
         result.put("cameraDailyCount", user.getCameraDailyCount());
-        result.put("remainingToday", 10 - user.getCameraDailyCount());
+        result.put("remainingToday", remainingTodayFor(user));
         result.put("rewardGranted", 1);
         result.put("nowRewards", user.getNowRewards());
         return result;
@@ -173,13 +173,28 @@ public class AiController {
         result.put("predictedType", predictedType);
         result.put("model", "hint-fallback");
         result.put("cameraDailyCount", user.getCameraDailyCount());
-        result.put("remainingToday", 10 - user.getCameraDailyCount());
+        result.put("remainingToday", remainingTodayFor(user));
         result.put("rewardGranted", 1);
         result.put("nowRewards", user.getNowRewards());
         return result;
     }
 
+    private static boolean isAdmin(User user) {
+        return user != null && "ADMIN".equalsIgnoreCase(user.getRole());
+    }
+
+    /** ADMIN: 일일 한도 없음 → null (UI "-" 표시) */
+    private static Integer remainingTodayFor(User user) {
+        if (isAdmin(user)) {
+            return null;
+        }
+        return 10 - user.getCameraDailyCount();
+    }
+
     private void applyRateLimitOrThrow(User user) {
+        if (isAdmin(user)) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = now.toLocalDate();
 
