@@ -39,15 +39,15 @@ static const int PIN_LED_B = 27;
 // FULL: 椰꾧퀡??10cm 沃섎챶彛??1??볦퍢 ?怨쀫꺗 ?醫??????춸 ?袁れ넎
 static const unsigned long FULL_DETECT_MS = 60UL * 60UL * 1000UL;  // 1 hour
 static const float FULL_NEAR_CM = 10.0f;
-// baseline ????20cm ??곴맒 揶쎛繹먮슣?숋쭪?椰꾧퀡??揶쏅Ŋ?????λ뜆???"?? 疫꿸퀣? ?怨쀫꺗 N???醫?????CHECK
-static const float READY_DELTA_CM = 20.0f;
-static const int READY_DROP_TICKS_REQUIRED = 5;
+// READY: baseline 대비 조금만 변해도 즉시 CHECK (가까워짐/멀어짐 모두 인정)
+static const float READY_DELTA_CM = 1.0f;
+static const int READY_DROP_TICKS_REQUIRED = 1;
 static const uint32_t LEDC_FREQ_HZ = 10000;  // high-frequency PWM for stable color
 static const uint8_t LEDC_RES_BITS = 8;
 static const int LEDC_CH_R = 0;
 static const int LEDC_CH_G = 1;
 static const int LEDC_CH_B = 2;
-static const unsigned long ULTRA_PING_INTERVAL_MS = 65;
+static const unsigned long ULTRA_PING_INTERVAL_MS = 25;
 static const unsigned long ULTRA_LOG_INTERVAL_MS = 10000UL;  // 10s
 
 static esp_mqtt_client_handle_t s_mqtt = nullptr;
@@ -246,14 +246,14 @@ void armReady(const char *nick) {
   strncpy(pendingNickname, nick, sizeof(pendingNickname) - 1);
   pendingNickname[sizeof(pendingNickname) - 1] = '\0';
   deviceMode = MODE_READY_WAIT;
-  readyDeadlineMs = millis() + 10000UL;
+  readyDeadlineMs = millis() + 30000UL;
   applyReadyYellowVivid();
   fullDetectStartMs = 0;
   readyBaselineCm = -1.0f;
   readyBaselineSet = false;
   s_readyDropStreak = 0;
   s_readyLastProcessedUltraSeq = s_ultraSampleSeq;
-  Serial.printf(">>> READY 10s, userId=%s (drop>=%.0fcm x %d ultra-ticks -> CHECK)\n",
+  Serial.printf(">>> READY 30s, userId=%s (|delta|>=%.1fcm x %d tick -> CHECK)\n",
                 pendingNickname, (double)READY_DELTA_CM, READY_DROP_TICKS_REQUIRED);
 }
 
@@ -537,16 +537,16 @@ void loop() {
       readyBaselineSet = true;
       Serial.printf("[READY] baseline=%.1f cm\n", readyBaselineCm);
     } else {
-      float drop = readyBaselineCm - cm;
-      if (drop >= READY_DELTA_CM) {
+      float delta = fabsf(cm - readyBaselineCm);
+      if (delta >= READY_DELTA_CM) {
         s_readyDropStreak++;
       } else {
         s_readyDropStreak = 0;
       }
 
       if (s_readyDropStreak >= READY_DROP_TICKS_REQUIRED) {
-        Serial.printf(">>> CHECK trigger drop=%.1f (base=%.1f now=%.1f, streak=%d)\n",
-                      (double)drop, (double)readyBaselineCm, (double)cm, s_readyDropStreak);
+        Serial.printf(">>> CHECK trigger delta=%.1f (base=%.1f now=%.1f, streak=%d)\n",
+                      (double)delta, (double)readyBaselineCm, (double)cm, s_readyDropStreak);
         publishStatusCheck();
         deviceMode = MODE_CHECK_SHOW;
         applyRgb(false, true, false);  // GREEN
