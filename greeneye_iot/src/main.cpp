@@ -39,8 +39,9 @@ static const int PIN_LED_B = 27;
 // FULL: 椰꾧퀡??10cm 沃섎챶彛??1??볦퍢 ?怨쀫꺗 ?醫??????춸 ?袁れ넎
 static const unsigned long FULL_DETECT_MS = 60UL * 60UL * 1000UL;  // 1 hour
 static const float FULL_NEAR_CM = 10.0f;
-// READY: baseline·직전 샘플·에코 소실 중 하나만 만족해도 즉시 CHECK
-static const float READY_DELTA_CM = 0.5f;
+// READY: 직전 샘플 대비 가까워짐만 CHECK (~20cm 좁은 구간 노이즈 무시)
+static const float READY_DROP_CM = 4.0f;
+static const int READY_ECHO_LOST_TICKS_REQUIRED = 3;
 static const uint32_t LEDC_FREQ_HZ = 10000;  // high-frequency PWM for stable color
 static const uint8_t LEDC_RES_BITS = 8;
 static const int LEDC_CH_R = 0;
@@ -84,15 +85,13 @@ unsigned long readyDeadlineMs = 0;
 unsigned long greenUntilMs = 0;
 unsigned long fullDetectStartMs = 0;
 bool fullSent = false;
-float readyBaselineCm = -1.0f;
-bool readyBaselineSet = false;
-
 static unsigned long s_lastUltraPingMs = 0;
 static unsigned long s_lastUltraLogMs = 0;
 static float s_lastDistCm = -1.0f;
 /** ?λ뜆?????筌β돦?????륁궞 ???춳??筌앹빓? (loop 20ms?? ?얜떯???띿쓺 1??1??묐탣) */
 static uint32_t s_ultraSampleSeq = 0;
 static float s_readyPrevCm = -1.0f;
+static int s_readyEchoLostStreak = 0;
 /** READY 筌욊쑴??筌욊낱????살삋??s_lastDistCm??곗쨮 ?怨쀪텦??? ??낅즲嚥?筌띾뜆?筌?筌ｌ꼶?????묐탣 甕곕뜇??*/
 static uint32_t s_readyLastProcessedUltraSeq = 0;
 
@@ -120,9 +119,8 @@ void enterDefaultIdle() {
   pendingNickname[0] = '\0';
   fullDetectStartMs = 0;
   fullSent = false;
-  readyBaselineCm = -1.0f;
-  readyBaselineSet = false;
   s_readyPrevCm = -1.0f;
+  s_readyEchoLostStreak = 0;
 }
 
 /** HC-SR04?? ??쎈솭 ??-1, ?醫륁뒞 ??cm (????2~400) */
@@ -248,12 +246,11 @@ void armReady(const char *nick) {
   readyDeadlineMs = millis() + 10000UL;
   applyReadyYellowVivid();
   fullDetectStartMs = 0;
-  readyBaselineCm = -1.0f;
-  readyBaselineSet = false;
   s_readyPrevCm = -1.0f;
+  s_readyEchoLostStreak = 0;
   s_readyLastProcessedUltraSeq = s_ultraSampleSeq;
-  Serial.printf(">>> READY 10s, userId=%s (|delta|>=%.1fcm -> CHECK)\n",
-                pendingNickname, (double)READY_DELTA_CM);
+  Serial.printf(">>> READY 10s, userId=%s (prev-now drop>=%.0fcm, echoLost>=%d -> CHECK)\n",
+                pendingNickname, (double)READY_DROP_CM, READY_ECHO_LOST_TICKS_REQUIRED);
 }
 
 void handleIncomingCmdPayload(const char *payload) {
@@ -531,22 +528,18 @@ void loop() {
   cm = s_lastDistCm;
 
   if (cm >= 0) {
-    if (!readyBaselineSet) {
-      readyBaselineCm = cm;
-      readyBaselineSet = true;
+    if (s_readyPrevCm < 0.0f) {
       s_readyPrevCm = cm;
-      Serial.printf("[READY] baseline=%.1f cm\n", readyBaselineCm);
+      Serial.printf("[READY] first=%.1f cm\n", cm);
     } else {
-      float deltaBase = fabsf(cm - readyBaselineCm);
       float prevCm = s_readyPrevCm;
-      float deltaPrev = (prevCm >= 0.0f) ? fabsf(cm - prevCm) : 0.0f;
-      bool motion = deltaBase >= READY_DELTA_CM || deltaPrev >= READY_DELTA_CM;
+      float drop = prevCm - cm;  // 양수 = 가까워짐 (쓰레기 통과)
       s_readyPrevCm = cm;
+      s_readyEchoLostStreak = 0;
 
-      if (motion) {
-        Serial.printf(">>> CHECK trigger base=%.1f prev=%.1f now=%.1f (dBase=%.1f dPrev=%.1f)\n",
-                      (double)readyBaselineCm, (double)prevCm, (double)cm,
-                      (double)deltaBase, (double)deltaPrev);
+      if (drop >= READY_DROP_CM) {
+        Serial.printf(">>> CHECK trigger prev=%.1f now=%.1f drop=%.1f\n",
+                      (double)prevCm, (double)cm, (double)drop);
         publishStatusCheck();
         deviceMode = MODE_CHECK_SHOW;
         applyRgb(false, true, false);  // GREEN
@@ -556,16 +549,18 @@ void loop() {
         return;
       }
     }
-  } else if (readyBaselineSet) {
-    // 에코 미수신 = 물체가 센서 앞을 스쳐 지나감
-    Serial.println(">>> CHECK trigger echo lost (fast pass)");
-    publishStatusCheck();
-    deviceMode = MODE_CHECK_SHOW;
-    applyRgb(false, true, false);  // GREEN
-    greenUntilMs = readyDeadlineMs;
-    pendingNickname[0] = '\0';
-    delay(20);
-    return;
+  } else if (s_readyPrevCm >= 0.0f) {
+    s_readyEchoLostStreak++;
+    if (s_readyEchoLostStreak >= READY_ECHO_LOST_TICKS_REQUIRED) {
+      Serial.printf(">>> CHECK trigger echo lost x%d (fast pass)\n", s_readyEchoLostStreak);
+      publishStatusCheck();
+      deviceMode = MODE_CHECK_SHOW;
+      applyRgb(false, true, false);  // GREEN
+      greenUntilMs = readyDeadlineMs;
+      pendingNickname[0] = '\0';
+      delay(20);
+      return;
+    }
   }
 
   if (millis() >= readyDeadlineMs) {
