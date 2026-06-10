@@ -37,9 +37,9 @@ google:
 gemini:
   api:
     key: ${GEMINI_API_KEY:}
-    # 분류 전용: flash 계열이 빠름. 한도/속도 이슈 시 GEMINI_MODEL=gemini-2.5-flash-lite
-    model: ${GEMINI_MODEL:gemini-2.0-flash}
-    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:55}
+    # 분류 전용: gemini-2.5-flash 가 안정적. 한도 이슈 시 GEMINI_MODEL=gemini-2.5-flash-lite
+    model: ${GEMINI_MODEL:gemini-2.5-flash}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:45}
     max-retries: ${GEMINI_MAX_RETRIES:1}
     max-image-side: ${GEMINI_MAX_IMAGE_SIDE:1280}
     jpeg-quality: ${GEMINI_JPEG_QUALITY:0.82}

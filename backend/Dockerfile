@@ -33,5 +33,6 @@ COPY --from=builder /backend/build/libs/*.jar backend.jar
 EXPOSE 8080
 #컨테이너가 8080포트를 사용한다고 명시
 
+ENV JAVA_TOOL_OPTIONS="-Djava.awt.headless=true"
 ENTRYPOINT ["java","-jar","backend.jar"]
 #기존 CMD이나 ENTRYPOINT가 더 안전하다고 함

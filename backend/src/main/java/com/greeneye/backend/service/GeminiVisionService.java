@@ -41,7 +41,7 @@ public class GeminiVisionService {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    @Value("${gemini.api.model:gemini-2.0-flash}")
+    @Value("${gemini.api.model:gemini-2.5-flash}")
     private String geminiModel;
 
     @Value("${gemini.api.timeout-seconds:55}")
@@ -56,10 +56,9 @@ public class GeminiVisionService {
     @Value("${gemini.api.jpeg-quality:0.82}")
     private float jpegQuality;
 
-    private static final List<String> ADMIN_FALLBACK_MODELS = List.of(
-            "gemini-2.5-flash-lite",
-            "gemini-2.0-flash-lite"
-    );
+    private static final List<String> ADMIN_FALLBACK_MODELS = List.of("gemini-2.5-flash-lite");
+
+    private static final long TOTAL_DEADLINE_MS = 48_000L;
 
     public ClassificationResult classifyWaste(byte[] imageBytes, String contentType, boolean admin) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
@@ -115,13 +114,21 @@ public class GeminiVisionService {
     }
 
     private GeminiCallResult callGeminiWithRetry(byte[] imageBytes, String mime, boolean admin, List<String> models) {
-        int attemptsPerModel = admin ? 2 : Math.max(0, maxRetries) + 1;
+        long deadlineAt = System.currentTimeMillis() + TOTAL_DEADLINE_MS;
+        int attemptsPerModel = admin ? 1 : Math.max(0, maxRetries) + 1;
         ResponseStatusException last = null;
 
         for (String model : models) {
             for (int attempt = 1; attempt <= attemptsPerModel; attempt++) {
+                if (System.currentTimeMillis() >= deadlineAt) {
+                    throw new ResponseStatusException(
+                            HttpStatus.GATEWAY_TIMEOUT,
+                            "이미지 분석 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
+                    );
+                }
                 try {
-                    String raw = callGeminiOnce(imageBytes, mime, model);
+                    long remainingMs = Math.max(5_000L, deadlineAt - System.currentTimeMillis());
+                    String raw = callGeminiOnce(imageBytes, mime, model, remainingMs);
                     return new GeminiCallResult(raw, model);
                 } catch (ResponseStatusException e) {
                     last = e;
@@ -137,16 +144,20 @@ public class GeminiVisionService {
                             e.getReason()
                     );
                     if (attempt < attemptsPerModel) {
-                        sleepQuietly(admin ? 800L : 1500L * attempt);
+                        sleepQuietly(admin ? 500L : 1000L * attempt);
                     }
                 }
             }
         }
 
-        throw last != null ? last : new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 호출 실패");
+        throw last != null ? last : new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Gemini 호출에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        );
     }
 
-    private String callGeminiOnce(byte[] imageBytes, String mime, String model) {
+    private String callGeminiOnce(byte[] imageBytes, String mime, String model, long remainingMs) {
+        long blockSeconds = Math.min(timeoutSeconds, Math.max(5L, remainingMs / 1000L));
         String b64 = Base64.getEncoder().encodeToString(imageBytes);
 
         Map<String, Object> inline = new LinkedHashMap<>();
@@ -181,7 +192,7 @@ public class GeminiVisionService {
                     .bodyValue(reqBody)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(timeoutSeconds));
+                    .block(Duration.ofSeconds(blockSeconds));
         } catch (WebClientResponseException e) {
             throw toGeminiException(e);
         } catch (Exception e) {
@@ -202,11 +213,15 @@ public class GeminiVisionService {
         String friendly = parseGeminiErrorMessage(body, status);
         log.warn("gemini api error http={} message={}", status, friendly);
 
-        // Gemini 429는 앱 촬영 한도(429)와 구분하기 위해 502로 반환
         HttpStatus mapped = switch (status) {
+            case 404 -> HttpStatus.SERVICE_UNAVAILABLE;
             case 408, 504 -> HttpStatus.GATEWAY_TIMEOUT;
-            default -> HttpStatus.BAD_GATEWAY;
+            case 429 -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.SERVICE_UNAVAILABLE;
         };
+        if (status == 404) {
+            friendly = "Gemini 모델을 사용할 수 없습니다. 서버 설정(GEMINI_MODEL)을 확인해 주세요.";
+        }
         return new ResponseStatusException(mapped, friendly);
     }
 
@@ -245,9 +260,11 @@ public class GeminiVisionService {
         if (status == null) {
             return false;
         }
-        return status == HttpStatus.TOO_MANY_REQUESTS
-                || status == HttpStatus.BAD_GATEWAY
-                || status == HttpStatus.SERVICE_UNAVAILABLE
+        String reason = e.getReason() != null ? e.getReason() : "";
+        if (reason.contains("키가 거부")) {
+            return false;
+        }
+        return status == HttpStatus.SERVICE_UNAVAILABLE
                 || status == HttpStatus.GATEWAY_TIMEOUT;
     }
 
