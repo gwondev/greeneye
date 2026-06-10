@@ -206,9 +206,14 @@ const Camera = () => {
               <Typography sx={{ color: "#7CFF72", fontWeight: 800, mb: 1, textAlign: "center" }}>
                 AI 예측: {TYPE_LABELS[result.predictedType] ?? result.predictedType}
               </Typography>
-              {result.rawSnippet && (
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.65)", whiteSpace: "pre-wrap" }}>
-                  {result.rawSnippet}
+              {result.recognizedItem && (
+                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.85)", mb: 1, textAlign: "center" }}>
+                  인식: {result.recognizedItem}
+                </Typography>
+              )}
+              {(result.guidance || result.rawSnippet) && (
+                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.65)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                  {result.guidance || result.rawSnippet}
                 </Typography>
               )}
               <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", display: "block", mt: 1, textAlign: "center" }}>

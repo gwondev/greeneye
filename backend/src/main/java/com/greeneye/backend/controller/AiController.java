@@ -86,14 +86,17 @@ public class AiController {
 
         String normalizedUserPick = normalizeUserPick(userSelectedType);
         String finalType = normalizedUserPick != null ? normalizedUserPick : classification.predictedType();
-        String text = classification.rawText();
+        String guidance = classification.guidance();
+        String recognizedItem = classification.recognizedItem();
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("predictedType", classification.predictedType());
         result.put("userSelectedType", normalizedUserPick);
         result.put("finalType", finalType);
         result.put("model", classification.model());
-        result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
+        result.put("recognizedItem", recognizedItem);
+        result.put("guidance", guidance);
+        result.put("rawSnippet", guidance != null && guidance.length() > 500 ? guidance.substring(0, 500) + "…" : guidance);
         result.put("cameraDailyCount", admin ? null : user.getCameraDailyCount());
         result.put("remainingToday", remainingTodayFor(user, admin));
         result.put("rewardGranted", admin ? 0 : 1);
@@ -101,12 +104,13 @@ public class AiController {
         result.put("rateLimitBypassed", admin);
 
         log.info(
-                "analyze success oauthId={} admin={} predicted={} final={} model={}",
+                "analyze success oauthId={} admin={} predicted={} final={} model={} recognized={}",
                 oid,
                 admin,
                 classification.predictedType(),
                 finalType,
-                classification.model()
+                classification.model(),
+                recognizedItem
         );
         return result;
     }

@@ -28,13 +28,27 @@ import java.util.Map;
 public class GeminiVisionService {
 
     private static final String VISION_PROMPT = """
-            대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하라.
-            첫 줄에는 아래 네 단어 중 정확히 하나만 출력하라: CAN, GENERAL, PET, HAZARD
+            대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하고 배출 안내를 작성하라.
+
+            [출력 형식 — 줄 번호·접두어를 지킬 것]
+            1줄: 분류 코드 하나만 — CAN, GENERAL, PET, HAZARD 중 정확히 하나
+            2줄: 인식: (사진에서 보이는 물품명. 브랜드·제품명이 보이면 함께 기술. 예: 인식: 참이슬 소주병, 인식: 생수 페트병)
+            3줄부터: 배출 안내 (2~4문장, 줄바꿈 가능)
+
+            [분류 기준]
             - CAN: 알루미늄·철 캔 등 금속 캔
             - GENERAL: 일반쓰레기(재활용·캔·페트에 해당하지 않는 경우)
             - PET: 페트병·플라스틱 병류(페트 위주)
-            - HAZARD: 배터리, 스프레이캔, 유해·위험 폐기물로 보이는 경우
-            둘째 줄부터는 한국어로 한 문장만 설명해도 된다.""";
+            - HAZARD: 배터리, 스프레이캔, 유해·위험 폐기물
+
+            [배출 안내 규칙]
+            - 마크다운·굵게(**)·목록 기호·이모지 사용 금지. 평문만 쓸 것.
+            - 페트·플라스틱(PET): 내용물 비우기·가벼운 헹굼을 기본 안내.
+              사진에서 라벨이 붙어 있으면 라벨을 떼어 배출하라고 안내.
+              뚜껑이 본체와 다른 재질이거나 분리 가능하면 뚜껑 분리 배출을 안내.
+              확실하지 않으면 일반적인 분리배출 요령만 짧게 안내.
+            - CAN: 내용물 비우기·가벼운 헹굼 안내.
+            - GENERAL·HAZARD: 해당 분류에 맞는 간단한 주의 안내.""";
 
     private final WebClient geminiWebClient;
     private final ObjectMapper objectMapper;
@@ -142,8 +156,14 @@ public class GeminiVisionService {
         try {
             JsonNode root = objectMapper.readTree(call.raw());
             String text = extractGeminiText(root);
-            String predicted = normalizeTypeToken(text);
-            return new ClassificationResult(predicted, call.model(), text);
+            ParsedVision parsed = parseVisionText(text);
+            return new ClassificationResult(
+                    parsed.predictedType(),
+                    call.model(),
+                    text,
+                    parsed.recognizedItem(),
+                    parsed.guidance()
+            );
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -232,7 +252,7 @@ public class GeminiVisionService {
 
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", 0.1);
-        generationConfig.put("maxOutputTokens", 64);
+        generationConfig.put("maxOutputTokens", 320);
 
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(Map.of("parts", parts)));
@@ -400,11 +420,59 @@ public class GeminiVisionService {
         throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 텍스트 응답이 비어 있습니다.");
     }
 
+    private ParsedVision parseVisionText(String text) {
+        if (text == null || text.isBlank()) {
+            return new ParsedVision("GENERAL", "", "");
+        }
+
+        String[] lines = text.trim().split("\\R");
+        String predicted = normalizeTypeToken(lines[0]);
+        String recognizedItem = "";
+        StringBuilder guidance = new StringBuilder();
+
+        for (int i = 1; i < lines.length; i++) {
+            String line = stripMarkdown(lines[i]).trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (recognizedItem.isEmpty() && line.startsWith("인식:")) {
+                recognizedItem = line.substring("인식:".length()).trim();
+                continue;
+            }
+            if (recognizedItem.isEmpty() && i == 1 && !looksLikeTypeToken(line)) {
+                recognizedItem = line;
+                continue;
+            }
+            if (guidance.length() > 0) {
+                guidance.append("\n");
+            }
+            guidance.append(line);
+        }
+
+        return new ParsedVision(predicted, recognizedItem, guidance.toString());
+    }
+
+    private static boolean looksLikeTypeToken(String line) {
+        String u = line.trim().toUpperCase(Locale.ROOT);
+        return u.equals("CAN") || u.equals("GENERAL") || u.equals("PET") || u.equals("HAZARD");
+    }
+
+    private static String stripMarkdown(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text
+                .replace("**", "")
+                .replace("__", "")
+                .replaceAll("^#+\\s*", "")
+                .trim();
+    }
+
     private String normalizeTypeToken(String text) {
         if (text == null || text.isBlank()) {
             return "GENERAL";
         }
-        String firstLine = text.trim().split("\\R", 2)[0].trim().toUpperCase(Locale.ROOT);
+        String firstLine = stripMarkdown(text.trim().split("\\R", 2)[0]).trim().toUpperCase(Locale.ROOT);
         if (firstLine.contains("HAZARD")) {
             return "HAZARD";
         }
@@ -434,6 +502,15 @@ public class GeminiVisionService {
     private record GeminiCallResult(String raw, String model) {
     }
 
-    public record ClassificationResult(String predictedType, String model, String rawText) {
+    private record ParsedVision(String predictedType, String recognizedItem, String guidance) {
+    }
+
+    public record ClassificationResult(
+            String predictedType,
+            String model,
+            String rawText,
+            String recognizedItem,
+            String guidance
+    ) {
     }
 }
