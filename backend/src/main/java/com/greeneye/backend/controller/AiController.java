@@ -32,6 +32,7 @@ public class AiController {
     public Map<String, Object> status() {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("keyConfigured", geminiVisionService.isKeyPresent());
+        out.put("keySuffix", geminiVisionService.keySuffix());
         out.put("models", geminiVisionService.configuredModels());
         out.put("probes", geminiVisionService.probeModels());
         return out;

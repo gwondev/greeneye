@@ -71,6 +71,15 @@ public class GeminiVisionService {
         return geminiApiKey != null && !geminiApiKey.isBlank();
     }
 
+    /** 배포 검증용 — 키 전체 노출 없이 마지막 4자만 */
+    public String keySuffix() {
+        if (!isKeyPresent()) {
+            return null;
+        }
+        String k = geminiApiKey.trim();
+        return k.length() <= 4 ? "****" : "..." + k.substring(k.length() - 4);
+    }
+
     public List<String> configuredModels() {
         return modelsFor();
     }
@@ -263,15 +272,31 @@ public class GeminiVisionService {
 
     private static String buildFinalErrorMessage(List<String> models, List<String> failures) {
         String detail = String.join(" | ", failures);
+        String billing = billingDepletedMessage(detail);
+        if (billing != null) {
+            return billing;
+        }
         if (detail.contains("RESOURCE_EXHAUSTED") || detail.contains("429")) {
-            return "Gemini API 사용 불가 (한도 또는 모델 권한). "
-                    + "Google AI Studio에서 API 키·결제 설정을 확인하세요. "
-                    + "시도: " + String.join(" → ", models);
+            return "Gemini API 호출 한도에 도달했습니다. 잠시 후 다시 시도하거나 AI Studio 결제 설정을 확인해 주세요.";
         }
         if (detail.contains("PERMISSION_DENIED")) {
             return "Gemini API 키가 거부되었습니다. 서버 GEMINI_API_KEY를 확인해 주세요.";
         }
         return "Gemini 분석 실패. 시도: " + String.join(" → ", models) + ". " + detail;
+    }
+
+    private static String billingDepletedMessage(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.contains("prepayment credits are depleted")) {
+            return "Gemini API 결제 문제입니다. 후불(GCP)과 AI Studio 선불(Prepay) 크레딧은 별도입니다. "
+                    + "Cloud Console에 돈이 있어도 AI Studio 프로젝트에 'No available credits'면 API가 거부됩니다. "
+                    + "AI Studio → 해당 API 키의 프로젝트 → Billing에서 Prepay 충전 또는 "
+                    + "크레딧 있는 프로젝트에서 새 API 키 발급 후 GEMINI_API_KEY 교체.";
+        }
+        return null;
     }
 
     private ResponseStatusException toGeminiException(String model, WebClientResponseException e) {
@@ -308,6 +333,10 @@ public class GeminiVisionService {
                     return new GeminiError(apiStatus, "모델 없음: " + message);
                 }
                 if ("RESOURCE_EXHAUSTED".equalsIgnoreCase(apiStatus) || httpStatus == 429) {
+                    String billing = billingDepletedMessage(message);
+                    if (billing != null) {
+                        return new GeminiError(apiStatus, billing);
+                    }
                     return new GeminiError(apiStatus, "RESOURCE_EXHAUSTED: " + message);
                 }
                 if (!message.isBlank()) {
