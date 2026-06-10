@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -46,9 +47,16 @@ public class AiController {
 
         applyRateLimitOrThrow(user);
 
+        final byte[] imageBytes;
+        try {
+            imageBytes = image.getBytes();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미지를 읽을 수 없습니다.");
+        }
+
         GeminiVisionService.ClassificationResult classification;
         try {
-            classification = geminiVisionService.classifyWaste(image.getBytes(), image.getContentType());
+            classification = geminiVisionService.classifyWaste(imageBytes, image.getContentType());
         } catch (ResponseStatusException e) {
             log.warn("analyze failed oauthId={} status={} reason={}", oid, e.getStatusCode().value(), e.getReason());
             throw e;
