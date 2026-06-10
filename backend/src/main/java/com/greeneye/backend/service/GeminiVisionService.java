@@ -56,35 +56,43 @@ public class GeminiVisionService {
     @Value("${gemini.api.jpeg-quality:0.82}")
     private float jpegQuality;
 
-    public ClassificationResult classifyWaste(byte[] imageBytes, String contentType) {
+    private static final List<String> ADMIN_FALLBACK_MODELS = List.of(
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite"
+    );
+
+    public ClassificationResult classifyWaste(byte[] imageBytes, String contentType, boolean admin) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Gemini API key is not configured");
         }
 
         ImagePrepareUtil.PreparedImage prepared =
                 ImagePrepareUtil.prepare(imageBytes, contentType, maxImageSide, jpegQuality);
+
+        List<String> modelsToTry = modelsFor(admin);
         log.info(
-                "gemini classify start model={} originalBytes={} preparedBytes={} mime={}",
-                geminiModel,
+                "gemini classify start admin={} models={} originalBytes={} preparedBytes={} mime={}",
+                admin,
+                modelsToTry,
                 prepared.originalBytes(),
                 prepared.preparedBytes(),
                 prepared.mimeType()
         );
 
         long started = System.currentTimeMillis();
-        String raw = callGeminiWithRetry(prepared.bytes(), prepared.mimeType());
+        GeminiCallResult call = callGeminiWithRetry(prepared.bytes(), prepared.mimeType(), admin, modelsToTry);
         long elapsedMs = System.currentTimeMillis() - started;
-        log.info("gemini classify done model={} elapsedMs={}", geminiModel, elapsedMs);
+        log.info("gemini classify done model={} elapsedMs={}", call.model(), elapsedMs);
 
-        if (raw == null || raw.isBlank()) {
+        if (call.raw() == null || call.raw().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답이 비어 있습니다.");
         }
 
         try {
-            JsonNode root = objectMapper.readTree(raw);
+            JsonNode root = objectMapper.readTree(call.raw());
             String text = extractGeminiText(root);
             String predicted = normalizeTypeToken(text);
-            return new ClassificationResult(predicted, geminiModel, text);
+            return new ClassificationResult(predicted, call.model(), text);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -93,36 +101,52 @@ public class GeminiVisionService {
         }
     }
 
-    private String callGeminiWithRetry(byte[] imageBytes, String mime) {
-        int attempts = Math.max(0, maxRetries) + 1;
-        RuntimeException last = null;
+    private List<String> modelsFor(boolean admin) {
+        List<String> models = new ArrayList<>();
+        models.add(geminiModel);
+        if (admin) {
+            for (String fallback : ADMIN_FALLBACK_MODELS) {
+                if (!models.contains(fallback)) {
+                    models.add(fallback);
+                }
+            }
+        }
+        return models;
+    }
 
-        for (int attempt = 1; attempt <= attempts; attempt++) {
-            try {
-                return callGeminiOnce(imageBytes, mime);
-            } catch (ResponseStatusException e) {
-                last = e;
-                if (attempt < attempts && isRetryable(e)) {
-                    log.warn("gemini retry attempt={}/{} reason={}", attempt, attempts, e.getReason());
-                    sleepQuietly(1500L * attempt);
-                    continue;
+    private GeminiCallResult callGeminiWithRetry(byte[] imageBytes, String mime, boolean admin, List<String> models) {
+        int attemptsPerModel = admin ? 2 : Math.max(0, maxRetries) + 1;
+        ResponseStatusException last = null;
+
+        for (String model : models) {
+            for (int attempt = 1; attempt <= attemptsPerModel; attempt++) {
+                try {
+                    String raw = callGeminiOnce(imageBytes, mime, model);
+                    return new GeminiCallResult(raw, model);
+                } catch (ResponseStatusException e) {
+                    last = e;
+                    if (!isRetryable(e)) {
+                        throw e;
+                    }
+                    log.warn(
+                            "gemini retry admin={} model={} attempt={}/{} reason={}",
+                            admin,
+                            model,
+                            attempt,
+                            attemptsPerModel,
+                            e.getReason()
+                    );
+                    if (attempt < attemptsPerModel) {
+                        sleepQuietly(admin ? 800L : 1500L * attempt);
+                    }
                 }
-                throw e;
-            } catch (RuntimeException e) {
-                last = e;
-                if (attempt < attempts) {
-                    log.warn("gemini retry attempt={}/{} error={}", attempt, attempts, e.getMessage());
-                    sleepQuietly(1500L * attempt);
-                    continue;
-                }
-                throw e;
             }
         }
 
         throw last != null ? last : new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 호출 실패");
     }
 
-    private String callGeminiOnce(byte[] imageBytes, String mime) {
+    private String callGeminiOnce(byte[] imageBytes, String mime, String model) {
         String b64 = Base64.getEncoder().encodeToString(imageBytes);
 
         Map<String, Object> inline = new LinkedHashMap<>();
@@ -145,7 +169,7 @@ public class GeminiVisionService {
         reqBody.put("generationConfig", generationConfig);
 
         String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                + geminiModel
+                + model
                 + ":generateContent?key="
                 + geminiApiKey;
 
@@ -178,8 +202,8 @@ public class GeminiVisionService {
         String friendly = parseGeminiErrorMessage(body, status);
         log.warn("gemini api error http={} message={}", status, friendly);
 
+        // Gemini 429는 앱 촬영 한도(429)와 구분하기 위해 502로 반환
         HttpStatus mapped = switch (status) {
-            case 429 -> HttpStatus.TOO_MANY_REQUESTS;
             case 408, 504 -> HttpStatus.GATEWAY_TIMEOUT;
             default -> HttpStatus.BAD_GATEWAY;
         };
@@ -280,6 +304,9 @@ public class GeminiVisionService {
             return "GENERAL";
         }
         return "GENERAL";
+    }
+
+    private record GeminiCallResult(String raw, String model) {
     }
 
     public record ClassificationResult(String predictedType, String model, String rawText) {

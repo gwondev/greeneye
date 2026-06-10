@@ -13,7 +13,13 @@ function parseApiError(text, status) {
   try {
     const json = JSON.parse(text);
     if (typeof json.message === "string" && json.message) return json.message;
-    if (typeof json.error === "string" && json.error) return json.error;
+    if (status === 429) return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+    if (status === 502 || status === 503) {
+      return "AI 분석 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.";
+    }
+    if (typeof json.error === "string" && json.error && json.error !== "Too Many Requests") {
+      return json.error;
+    }
   } catch {
     // not JSON
   }

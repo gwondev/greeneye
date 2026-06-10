@@ -3,6 +3,7 @@ package com.greeneye.backend.controller;
 import com.greeneye.backend.entity.User;
 import com.greeneye.backend.repository.UserRepository;
 import com.greeneye.backend.service.GeminiVisionService;
+import com.greeneye.backend.util.UserRoleUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -40,12 +41,20 @@ public class AiController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
         }
 
-        log.info("analyze request oauthId={} imageBytes={} contentType={}", oid, image.getSize(), image.getContentType());
-
         User user = userRepository.findByOauthId(oid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        applyRateLimitOrThrow(user);
+        boolean admin = UserRoleUtil.isAdmin(user);
+        log.info(
+                "analyze request oauthId={} role={} adminBypass={} imageBytes={} contentType={}",
+                oid,
+                user.getRole(),
+                admin,
+                image.getSize(),
+                image.getContentType()
+        );
+
+        applyRateLimitOrThrow(user, admin);
 
         final byte[] imageBytes;
         try {
@@ -56,13 +65,13 @@ public class AiController {
 
         GeminiVisionService.ClassificationResult classification;
         try {
-            classification = geminiVisionService.classifyWaste(imageBytes, image.getContentType());
+            classification = geminiVisionService.classifyWaste(imageBytes, image.getContentType(), admin);
         } catch (ResponseStatusException e) {
-            log.warn("analyze failed oauthId={} status={} reason={}", oid, e.getStatusCode().value(), e.getReason());
+            log.warn("analyze failed oauthId={} admin={} status={} reason={}", oid, admin, e.getStatusCode().value(), e.getReason());
             throw e;
         }
 
-        commitCameraUsage(user);
+        commitCameraUsage(user, admin);
 
         String normalizedUserPick = normalizeUserPick(userSelectedType);
         String finalType = normalizedUserPick != null ? normalizedUserPick : classification.predictedType();
@@ -74,14 +83,16 @@ public class AiController {
         result.put("finalType", finalType);
         result.put("model", classification.model());
         result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
-        result.put("cameraDailyCount", user.getCameraDailyCount());
-        result.put("remainingToday", remainingTodayFor(user));
-        result.put("rewardGranted", 1);
+        result.put("cameraDailyCount", admin ? null : user.getCameraDailyCount());
+        result.put("remainingToday", remainingTodayFor(user, admin));
+        result.put("rewardGranted", admin ? 0 : 1);
         result.put("nowRewards", user.getNowRewards());
+        result.put("rateLimitBypassed", admin);
 
         log.info(
-                "analyze success oauthId={} predicted={} final={} model={}",
+                "analyze success oauthId={} admin={} predicted={} final={} model={}",
                 oid,
+                admin,
                 classification.predictedType(),
                 finalType,
                 classification.model()
@@ -99,7 +110,8 @@ public class AiController {
         User user = userRepository.findByOauthId(oauthId.trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        applyRateLimitOrThrow(user);
+        boolean admin = UserRoleUtil.isAdmin(user);
+        applyRateLimitOrThrow(user, admin);
 
         String hint = body.getOrDefault("hint", "").toLowerCase();
         String predictedType = "GENERAL";
@@ -113,32 +125,29 @@ public class AiController {
             predictedType = "HAZARD";
         }
 
-        commitCameraUsage(user);
+        commitCameraUsage(user, admin);
 
         Map<String, Object> result = new HashMap<>();
         result.put("predictedType", predictedType);
         result.put("model", "hint-fallback");
-        result.put("cameraDailyCount", user.getCameraDailyCount());
-        result.put("remainingToday", remainingTodayFor(user));
-        result.put("rewardGranted", 1);
+        result.put("cameraDailyCount", admin ? null : user.getCameraDailyCount());
+        result.put("remainingToday", remainingTodayFor(user, admin));
+        result.put("rewardGranted", admin ? 0 : 1);
         result.put("nowRewards", user.getNowRewards());
+        result.put("rateLimitBypassed", admin);
         return result;
     }
 
-    private static boolean isAdmin(User user) {
-        return user != null && "ADMIN".equalsIgnoreCase(user.getRole());
-    }
-
     /** ADMIN: 일일 한도 없음 → null (UI "-" 표시) */
-    private static Integer remainingTodayFor(User user) {
-        if (isAdmin(user)) {
+    private static Integer remainingTodayFor(User user, boolean admin) {
+        if (admin) {
             return null;
         }
         return 10 - user.getCameraDailyCount();
     }
 
-    private void applyRateLimitOrThrow(User user) {
-        if (isAdmin(user)) {
+    private void applyRateLimitOrThrow(User user, boolean admin) {
+        if (admin) {
             return;
         }
         LocalDateTime now = LocalDateTime.now();
@@ -161,7 +170,10 @@ public class AiController {
         }
     }
 
-    private void commitCameraUsage(User user) {
+    private void commitCameraUsage(User user, boolean admin) {
+        if (admin) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = now.toLocalDate();
         if (user.getCameraDailyDate() == null || !user.getCameraDailyDate().equals(today)) {
