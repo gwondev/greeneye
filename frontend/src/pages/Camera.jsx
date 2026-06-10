@@ -212,12 +212,19 @@ const Camera = () => {
                 </Typography>
               )}
               {(result.guidance || result.rawSnippet) && (
-                <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.65)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                  {result.guidance || result.rawSnippet}
-                </Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: "rgba(124,255,114,0.75)", fontWeight: 700, display: "block", mb: 0.5 }}>
+                    배출 안내
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.65)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                    {result.guidance || result.rawSnippet}
+                  </Typography>
+                </Box>
               )}
               <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", display: "block", mt: 1, textAlign: "center" }}>
-                오늘 남은 분석: {result.remainingToday ?? "-"}회
+                {result.rateLimitBypassed
+                  ? "오늘 남은 분석: 무제한 (관리자)"
+                  : `오늘 남은 분석: ${result.remainingToday ?? "-"}회`}
               </Typography>
             </Paper>
           )}

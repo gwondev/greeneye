@@ -30,10 +30,10 @@ public class GeminiVisionService {
     private static final String VISION_PROMPT = """
             대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하고 배출 안내를 작성하라.
 
-            [출력 형식 — 줄 번호·접두어를 지킬 것]
+            [출력 형식 — 아래 3줄을 반드시 모두 출력. 빠지면 안 됨]
             1줄: 분류 코드 하나만 — CAN, GENERAL, PET, HAZARD 중 정확히 하나
-            2줄: 인식: (사진에서 보이는 물품명. 브랜드·제품명이 보이면 함께 기술. 예: 인식: 참이슬 소주병, 인식: 생수 페트병)
-            3줄부터: 배출 안내 (2~4문장, 줄바꿈 가능)
+            2줄: 인식: (사진에서 보이는 물품명. 브랜드·제품명이 보이면 함께 기술)
+            3줄: 안내: (배출 방법 2~4문장. 반드시 작성. 사진에서 라벨·뚜껑이 보이면 구체적으로 안내)
 
             [분류 기준]
             - CAN: 알루미늄·철 캔 등 금속 캔
@@ -157,12 +157,17 @@ public class GeminiVisionService {
             JsonNode root = objectMapper.readTree(call.raw());
             String text = extractGeminiText(root);
             ParsedVision parsed = parseVisionText(text);
+            String guidance = parsed.guidance();
+            if (guidance.isBlank()) {
+                log.warn("gemini guidance empty, using fallback. raw={}", summarize(text, 200));
+                guidance = defaultGuidance(parsed.predictedType(), parsed.recognizedItem());
+            }
             return new ClassificationResult(
                     parsed.predictedType(),
                     call.model(),
                     text,
                     parsed.recognizedItem(),
-                    parsed.guidance()
+                    guidance
             );
         } catch (ResponseStatusException e) {
             throw e;
@@ -252,7 +257,7 @@ public class GeminiVisionService {
 
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", 0.1);
-        generationConfig.put("maxOutputTokens", 320);
+        generationConfig.put("maxOutputTokens", 512);
 
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(Map.of("parts", parts)));
@@ -439,17 +444,41 @@ public class GeminiVisionService {
                 recognizedItem = line.substring("인식:".length()).trim();
                 continue;
             }
+            if (line.startsWith("안내:")) {
+                appendGuidance(guidance, line.substring("안내:".length()).trim());
+                continue;
+            }
             if (recognizedItem.isEmpty() && i == 1 && !looksLikeTypeToken(line)) {
                 recognizedItem = line;
                 continue;
             }
-            if (guidance.length() > 0) {
-                guidance.append("\n");
-            }
-            guidance.append(line);
+            appendGuidance(guidance, line);
         }
 
         return new ParsedVision(predicted, recognizedItem, guidance.toString());
+    }
+
+    private static void appendGuidance(StringBuilder guidance, String line) {
+        if (line == null || line.isBlank()) {
+            return;
+        }
+        if (guidance.length() > 0) {
+            guidance.append("\n");
+        }
+        guidance.append(line);
+    }
+
+    private static String defaultGuidance(String type, String recognizedItem) {
+        String item = recognizedItem == null ? "" : recognizedItem.trim();
+        String subject = item.isBlank() ? "이 품목은" : item + "은(는)";
+        return switch (type) {
+            case "CAN" -> subject + " 내용물을 완전히 비우고 가볍게 헹군 뒤 배출하세요. "
+                    + "라벨이 붙어 있으면 떼어 내고, 플라스틱 뚜껑이면 분리하여 배출하세요.";
+            case "PET" -> subject + " 내용물을 비우고 라벨을 떼어 낸 뒤 가볍게 헹구세요. "
+                    + "뚜껑과 몸통 재질이 다르면 분리하여 배출하세요.";
+            case "HAZARD" -> subject + " 일반 쓰레기와 섞지 말고 지정된 위험물·대형폐기물 수거함에 배출하세요.";
+            default -> subject + " 해당 지역의 분리배출 기준에 맞게 배출하세요.";
+        };
     }
 
     private static boolean looksLikeTypeToken(String line) {
