@@ -27,6 +27,16 @@ public class AiController {
     private final UserRepository userRepository;
     private final GeminiVisionService geminiVisionService;
 
+    /** Gemini 키·모델 연결 상태 (배포 후 https://greeneye.gwon.run/api/ai/status 로 확인) */
+    @GetMapping("/status")
+    public Map<String, Object> status() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("keyConfigured", geminiVisionService.isKeyPresent());
+        out.put("models", geminiVisionService.configuredModels());
+        out.put("probes", geminiVisionService.probeModels());
+        return out;
+    }
+
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> analyzeMultipart(
             @RequestPart("image") MultipartFile image,

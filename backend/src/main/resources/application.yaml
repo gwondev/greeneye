@@ -37,12 +37,13 @@ google:
 gemini:
   api:
     key: ${GEMINI_API_KEY:}
-    # 분류: gemini-3-flash-preview (비전). 실패 시 gemini-2.5-flash 로 폴백
+    # 콤마로 여러 모델 시도 (앞에서부터). 비어 있으면 model + fallback-model + lite 순
+    models: ${GEMINI_MODELS:gemini-3-flash-preview,gemini-2.5-flash,gemini-2.5-flash-lite}
     model: ${GEMINI_MODEL:gemini-3-flash-preview}
     fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-2.5-flash}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:45}
-    max-image-side: ${GEMINI_MAX_IMAGE_SIDE:1280}
-    jpeg-quality: ${GEMINI_JPEG_QUALITY:0.82}
+    max-image-side: ${GEMINI_MAX_IMAGE_SIDE:960}
+    jpeg-quality: ${GEMINI_JPEG_QUALITY:0.8}
 
 mqtt:
   # docker-compose 서비스 이름이 mosquitto 이면 동일 네트워크에서 호스트명도 mosquitto

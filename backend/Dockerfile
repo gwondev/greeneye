@@ -23,6 +23,10 @@ RUN ./gradlew bootJar -x test
 FROM eclipse-temurin:21-jre-noble
 #JDK 대신 실행에만 필요한 JRE 버전 21 UBUNTU 이미지 24.04(noble) 사용
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fontconfig libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /backend
 #컨테이너 내 생성되는 작업폴더, app이라고 해도 되나 backend가 더 명확
 
