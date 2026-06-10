@@ -6,6 +6,7 @@ import com.greeneye.backend.repository.DisposalRecordRepository;
 import com.greeneye.backend.repository.RewardHistoryRepository;
 import com.greeneye.backend.repository.UserRepository;
 import com.greeneye.backend.service.RewardMailService;
+import com.greeneye.backend.service.TableIdCompactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class UserController {
     private final DisposalRecordRepository disposalRecordRepository;
     private final RewardHistoryRepository rewardHistoryRepository;
     private final RewardMailService rewardMailService;
+    private final TableIdCompactionService tableIdCompactionService;
 
     @GetMapping
     public List<User> getAllUsers() {
@@ -136,6 +138,8 @@ public class UserController {
             disposalRecordRepository.delete(dr);
         }
         userRepository.delete(user);
+        userRepository.flush();
+        tableIdCompactionService.compactAllAfterDelete();
     }
 
     @PostMapping("/{id}/exchange")

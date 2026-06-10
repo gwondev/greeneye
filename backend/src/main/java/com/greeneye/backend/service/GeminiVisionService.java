@@ -41,8 +41,11 @@ public class GeminiVisionService {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    @Value("${gemini.api.model:gemini-2.5-flash}")
+    @Value("${gemini.api.model:gemini-3.5-flash}")
     private String geminiModel;
+
+    @Value("${gemini.api.fallback-model:gemini-3.1-flash-lite}")
+    private String fallbackModel;
 
     @Value("${gemini.api.timeout-seconds:55}")
     private int timeoutSeconds;
@@ -56,8 +59,6 @@ public class GeminiVisionService {
     @Value("${gemini.api.jpeg-quality:0.82}")
     private float jpegQuality;
 
-    private static final List<String> ADMIN_FALLBACK_MODELS = List.of("gemini-2.5-flash-lite");
-
     private static final long TOTAL_DEADLINE_MS = 48_000L;
 
     public ClassificationResult classifyWaste(byte[] imageBytes, String contentType, boolean admin) {
@@ -68,7 +69,7 @@ public class GeminiVisionService {
         ImagePrepareUtil.PreparedImage prepared =
                 ImagePrepareUtil.prepare(imageBytes, contentType, maxImageSide, jpegQuality);
 
-        List<String> modelsToTry = modelsFor(admin);
+        List<String> modelsToTry = modelsFor();
         log.info(
                 "gemini classify start admin={} models={} originalBytes={} preparedBytes={} mime={}",
                 admin,
@@ -100,15 +101,11 @@ public class GeminiVisionService {
         }
     }
 
-    private List<String> modelsFor(boolean admin) {
+    private List<String> modelsFor() {
         List<String> models = new ArrayList<>();
         models.add(geminiModel);
-        if (admin) {
-            for (String fallback : ADMIN_FALLBACK_MODELS) {
-                if (!models.contains(fallback)) {
-                    models.add(fallback);
-                }
-            }
+        if (fallbackModel != null && !fallbackModel.isBlank() && !models.contains(fallbackModel)) {
+            models.add(fallbackModel);
         }
         return models;
     }
@@ -174,6 +171,9 @@ public class GeminiVisionService {
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", 0.1);
         generationConfig.put("maxOutputTokens", 64);
+        if (model.startsWith("gemini-3")) {
+            generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "MINIMAL"));
+        }
 
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(content));

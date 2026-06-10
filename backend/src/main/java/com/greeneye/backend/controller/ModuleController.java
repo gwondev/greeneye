@@ -10,6 +10,7 @@ import com.greeneye.backend.repository.UserRepository;
 import com.greeneye.backend.mqtt.GreeneyeMqttTopics;
 import com.greeneye.backend.service.ModuleDisposalService;
 import com.greeneye.backend.service.MqttPublisherService;
+import com.greeneye.backend.service.TableIdCompactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class ModuleController {
     private final RewardHistoryRepository rewardHistoryRepository;
     private final MqttPublisherService mqttPublisherService;
     private final ModuleDisposalService moduleDisposalService;
+    private final TableIdCompactionService tableIdCompactionService;
 
     private static final Set<String> ALLOWED_MODULE_STATUS = Set.of("DEFAULT", "READY", "CHECK", "FULL");
 
@@ -245,5 +247,7 @@ public class ModuleController {
             disposalRecordRepository.delete(dr);
         }
         moduleRepository.delete(module);
+        moduleRepository.flush();
+        tableIdCompactionService.compactAllAfterDelete();
     }
 }
