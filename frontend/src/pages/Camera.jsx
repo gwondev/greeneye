@@ -14,6 +14,7 @@ import PhotoCameraRoundedIcon from "@mui/icons-material/PhotoCameraRounded";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
 import { getUser } from "../services/auth";
 import { apiFetchMultipart } from "../services/api";
+import { compressImage } from "../utils/compressImage";
 
 const HELD_KEY = "greeneye.finalWasteType";
 const PENDING_REWARD_KEY = "greeneye.pendingReward";
@@ -61,8 +62,9 @@ const Camera = () => {
 
     try {
       setLoading(true);
+      const uploadFile = await compressImage(file);
       const fd = new FormData();
-      fd.append("image", file);
+      fd.append("image", uploadFile);
       fd.append("oauthId", oauthId);
       if (override) {
         fd.append("userSelectedType", override);

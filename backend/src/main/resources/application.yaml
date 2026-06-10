@@ -37,8 +37,12 @@ google:
 gemini:
   api:
     key: ${GEMINI_API_KEY:}
-    # 구 예: gemini-1.5-flash 는 API에서 제거·404 나는 경우가 많음 → 안정 버전으로 교체 가능
-    model: ${GEMINI_MODEL:gemini-2.5-flash}
+    # 분류 전용: flash 계열이 빠름. 한도/속도 이슈 시 GEMINI_MODEL=gemini-2.5-flash-lite
+    model: ${GEMINI_MODEL:gemini-2.0-flash}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:55}
+    max-retries: ${GEMINI_MAX_RETRIES:1}
+    max-image-side: ${GEMINI_MAX_IMAGE_SIDE:1280}
+    jpeg-quality: ${GEMINI_JPEG_QUALITY:0.82}
 
 mqtt:
   # docker-compose 서비스 이름이 mosquitto 이면 동일 네트워크에서 호스트명도 mosquitto

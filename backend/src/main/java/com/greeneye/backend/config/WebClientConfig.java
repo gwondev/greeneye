@@ -1,10 +1,16 @@
 package com.greeneye.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.netty.channel.ChannelOption;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
+
+import java.time.Duration;
 
 @Configuration
 public class WebClientConfig {
@@ -20,5 +26,19 @@ public class WebClientConfig {
     @Bean
     public WebClient.Builder webClientBuilder() {
         return WebClient.builder();
+    }
+
+    /** Gemini 전용 — Cloudflare 터널(~100s) 안에 끝나도록 짧은 타임아웃 */
+    @Bean
+    public WebClient geminiWebClient(
+            @Value("${gemini.api.timeout-seconds:55}") int timeoutSeconds
+    ) {
+        HttpClient httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(timeoutSeconds))
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10_000);
+
+        return WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
     }
 }

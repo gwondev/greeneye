@@ -1,17 +1,14 @@
 package com.greeneye.backend.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greeneye.backend.entity.User;
 import com.greeneye.backend.repository.UserRepository;
+import com.greeneye.backend.service.GeminiVisionService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
@@ -19,39 +16,21 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
 public class AiController {
 
     private final UserRepository userRepository;
-    private final WebClient.Builder webClientBuilder;
-    private final ObjectMapper objectMapper;
-
-    @Value("${gemini.api.key:}")
-    private String geminiApiKey;
-
-    @Value("${gemini.api.model:gemini-2.5-flash}")
-    private String geminiModel;
-
-    private static final String VISION_PROMPT = """
-            대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하라.
-            첫 줄에는 아래 네 단어 중 정확히 하나만 출력하라: CAN, GENERAL, PET, HAZARD
-            - CAN: 알루미늄·철 캔 등 금속 캔
-            - GENERAL: 일반쓰레기(재활용·캔·페트에 해당하지 않는 경우)
-            - PET: 페트병·플라스틱 병류(페트 위주)
-            - HAZARD: 배터리, 스프레이캔, 유해·위험 폐기물로 보이는 경우
-            둘째 줄부터는 한국어로 한 문장만 설명해도 된다.""";
+    private final GeminiVisionService geminiVisionService;
 
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> analyzeMultipart(
             @RequestPart("image") MultipartFile image,
             @RequestPart("oauthId") String oauthId,
             @RequestPart(value = "userSelectedType", required = false) String userSelectedType
-    ) throws Exception {
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Gemini API key is not configured");
-        }
+    ) {
         if (image.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "image is required");
         }
@@ -60,91 +39,50 @@ public class AiController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
         }
 
+        log.info("analyze request oauthId={} imageBytes={} contentType={}", oid, image.getSize(), image.getContentType());
+
         User user = userRepository.findByOauthId(oid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         applyRateLimitOrThrow(user);
 
-        String mime = Optional.ofNullable(image.getContentType()).filter(s -> !s.isBlank()).orElse("image/jpeg");
-        String b64 = Base64.getEncoder().encodeToString(image.getBytes());
-
-        Map<String, Object> inline = new LinkedHashMap<>();
-        inline.put("mime_type", mime);
-        inline.put("data", b64);
-
-        List<Map<String, Object>> parts = new ArrayList<>();
-        parts.add(Map.of("text", VISION_PROMPT));
-        parts.add(Map.of("inline_data", inline));
-
-        Map<String, Object> content = new LinkedHashMap<>();
-        content.put("parts", parts);
-
-        Map<String, Object> reqBody = new LinkedHashMap<>();
-        reqBody.put("contents", List.of(content));
-
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                + geminiModel
-                + ":generateContent?key="
-                + geminiApiKey;
-
-        String raw;
+        GeminiVisionService.ClassificationResult classification;
         try {
-            raw = webClientBuilder.build()
-                    .post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(reqBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block(Duration.ofSeconds(120));
-        } catch (WebClientResponseException e) {
-            String body = e.getResponseBodyAsString();
-            if (body != null && body.length() > 800) {
-                body = body.substring(0, 800) + "…";
-            }
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "Gemini API 오류 HTTP " + e.getStatusCode().value() + ": " + (body != null && !body.isBlank() ? body : e.getMessage())
-            );
-        } catch (Exception e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "Gemini 호출 실패: " + e.getMessage()
-            );
+            classification = geminiVisionService.classifyWaste(image.getBytes(), image.getContentType());
+        } catch (ResponseStatusException e) {
+            log.warn("analyze failed oauthId={} status={} reason={}", oid, e.getStatusCode().value(), e.getReason());
+            throw e;
         }
-
-        if (raw == null || raw.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답이 비어 있습니다.");
-        }
-
-        JsonNode root = objectMapper.readTree(raw);
-        String text = extractGeminiText(root);
-        String predicted = normalizeTypeToken(text);
 
         commitCameraUsage(user);
 
         String normalizedUserPick = normalizeUserPick(userSelectedType);
-        String finalType = normalizedUserPick != null ? normalizedUserPick : predicted;
+        String finalType = normalizedUserPick != null ? normalizedUserPick : classification.predictedType();
+        String text = classification.rawText();
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("predictedType", predicted);
+        result.put("predictedType", classification.predictedType());
         result.put("userSelectedType", normalizedUserPick);
         result.put("finalType", finalType);
-        result.put("model", geminiModel);
+        result.put("model", classification.model());
         result.put("rawSnippet", text != null && text.length() > 400 ? text.substring(0, 400) + "…" : text);
         result.put("cameraDailyCount", user.getCameraDailyCount());
         result.put("remainingToday", remainingTodayFor(user));
         result.put("rewardGranted", 1);
         result.put("nowRewards", user.getNowRewards());
+
+        log.info(
+                "analyze success oauthId={} predicted={} final={} model={}",
+                oid,
+                classification.predictedType(),
+                finalType,
+                classification.model()
+        );
         return result;
     }
 
     @PostMapping(value = "/analyze", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> analyzeJson(@RequestBody Map<String, String> body) {
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Gemini API key is not configured");
-        }
-
         String oauthId = body.get("oauthId");
         if (oauthId == null || oauthId.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
@@ -227,39 +165,6 @@ public class AiController {
         user.setNowRewards(user.getNowRewards() + 1);
         user.setTotalRewards(user.getTotalRewards() + 1);
         userRepository.save(user);
-    }
-
-    private String extractGeminiText(JsonNode root) {
-        JsonNode candidates = root.path("candidates");
-        if (!candidates.isArray() || candidates.isEmpty()) {
-            return "";
-        }
-        JsonNode parts = candidates.get(0).path("content").path("parts");
-        if (!parts.isArray() || parts.isEmpty()) {
-            return "";
-        }
-        JsonNode t = parts.get(0).path("text");
-        return t.isMissingNode() ? "" : t.asText("");
-    }
-
-    private String normalizeTypeToken(String text) {
-        if (text == null) {
-            return "GENERAL";
-        }
-        String firstLine = text.trim().split("\\R", 2)[0].trim().toUpperCase(Locale.ROOT);
-        if (firstLine.contains("HAZARD")) {
-            return "HAZARD";
-        }
-        if (firstLine.contains("PET")) {
-            return "PET";
-        }
-        if (firstLine.contains("CAN")) {
-            return "CAN";
-        }
-        if (firstLine.contains("GENERAL")) {
-            return "GENERAL";
-        }
-        return "GENERAL";
     }
 
     private String normalizeUserPick(String raw) {
