@@ -37,11 +37,9 @@ google:
 gemini:
   api:
     key: ${GEMINI_API_KEY:}
-    # 콤마로 여러 모델 시도 (앞에서부터). 비어 있으면 model + fallback-model + lite 순
-    models: ${GEMINI_MODELS:gemini-3-flash-preview,gemini-2.5-flash,gemini-2.5-flash-lite}
-    model: ${GEMINI_MODEL:gemini-3-flash-preview}
-    fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-2.5-flash}
-    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:45}
+    # 분류 전용: gemini-2.5-flash(정식·빠름) → lite 폴백. preview/pro/심층 모델은 자동 제외
+    models: ${GEMINI_MODELS:gemini-2.5-flash,gemini-2.5-flash-lite}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:18}
     max-image-side: ${GEMINI_MAX_IMAGE_SIDE:960}
     jpeg-quality: ${GEMINI_JPEG_QUALITY:0.8}
 

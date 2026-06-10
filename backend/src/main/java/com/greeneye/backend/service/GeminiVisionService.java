@@ -21,34 +21,40 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class GeminiVisionService {
 
+    private static final int MIN_GUIDANCE_CHARS = 25;
+    private static final long TOTAL_DEADLINE_MS = 22_000L;
+
+    /** 심층 추론·preview·thinking 모델 제외 — 분류+안내용 빠른 정식 모델만 */
+    private static final List<String> DEFAULT_VISION_MODELS = List.of(
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite"
+    );
+
+    private static final Set<String> BLOCKED_MODEL_HINTS = Set.of(
+            "preview", "pro", "thinking", "live", "tts", "image", "veo", "lyria",
+            "robotics", "embedding", "deep-research", "exp", "lite-preview"
+    );
+
     private static final String VISION_PROMPT = """
             대한민국 분리배출 관점에서 이미지의 주된 폐기물을 분류하고 배출 안내를 작성하라.
 
-            [출력 형식 — 아래 3줄을 반드시 모두 출력. 빠지면 안 됨]
-            1줄: 분류 코드 하나만 — CAN, GENERAL, PET, HAZARD 중 정확히 하나
-            2줄: 인식: (사진에서 보이는 물품명. 브랜드·제품명이 보이면 함께 기술)
-            3줄: 안내: (배출 방법 2~4문장. 반드시 작성. 사진에서 라벨·뚜껑이 보이면 구체적으로 안내)
+            [출력 형식 — 아래 3줄을 반드시 모두 출력]
+            1줄: 분류 코드 하나만 — CAN, GENERAL, PET, HAZARD
+            2줄: 인식: (물품명. 브랜드가 보이면 함께)
+            3줄: 안내: (배출 방법 2~4문장. 라벨·뚜껑이 보이면 구체적으로)
 
-            [분류 기준]
-            - CAN: 알루미늄·철 캔 등 금속 캔
-            - GENERAL: 일반쓰레기(재활용·캔·페트에 해당하지 않는 경우)
-            - PET: 페트병·플라스틱 병류(페트 위주)
-            - HAZARD: 배터리, 스프레이캔, 유해·위험 폐기물
-
-            [배출 안내 규칙]
-            - 마크다운·굵게(**)·목록 기호·이모지 사용 금지. 평문만 쓸 것.
-            - 페트·플라스틱(PET): 내용물 비우기·가벼운 헹굼을 기본 안내.
-              사진에서 라벨이 붙어 있으면 라벨을 떼어 배출하라고 안내.
-              뚜껑이 본체와 다른 재질이거나 분리 가능하면 뚜껑 분리 배출을 안내.
-              확실하지 않으면 일반적인 분리배출 요령만 짧게 안내.
-            - CAN: 내용물 비우기·가벼운 헹굼 안내.
-            - GENERAL·HAZARD: 해당 분류에 맞는 간단한 주의 안내.""";
+            [규칙]
+            - 마크다운·굵게(**)·목록 기호 금지. 평문만.
+            - PET: 내용물 비우기·헹굼. 라벨 있으면 제거. 뚜껑 분리 가능 시 분리 배출.
+            - CAN: 내용물 비우기·헹굼. 라벨·뚜껑 분리 안내.
+            - GENERAL·HAZARD: 해당 분류 주의 안내.""";
 
     private final WebClient geminiWebClient;
     private final ObjectMapper objectMapper;
@@ -59,13 +65,7 @@ public class GeminiVisionService {
     @Value("${gemini.api.models:}")
     private String modelsCsv;
 
-    @Value("${gemini.api.model:gemini-3-flash-preview}")
-    private String geminiModel;
-
-    @Value("${gemini.api.fallback-model:gemini-2.5-flash}")
-    private String fallbackModel;
-
-    @Value("${gemini.api.timeout-seconds:45}")
+    @Value("${gemini.api.timeout-seconds:18}")
     private int timeoutSeconds;
 
     @Value("${gemini.api.max-image-side:960}")
@@ -73,8 +73,6 @@ public class GeminiVisionService {
 
     @Value("${gemini.api.jpeg-quality:0.8}")
     private float jpegQuality;
-
-    private static final long TOTAL_DEADLINE_MS = 48_000L;
 
     @PostConstruct
     void logGeminiConfig() {
@@ -85,7 +83,6 @@ public class GeminiVisionService {
         return geminiApiKey != null && !geminiApiKey.isBlank();
     }
 
-    /** 배포 검증용 — 키 전체 노출 없이 마지막 4자만 */
     public String keySuffix() {
         if (!isKeyPresent()) {
             return null;
@@ -98,7 +95,6 @@ public class GeminiVisionService {
         return modelsFor();
     }
 
-    /** 서버에서 모델별 연결 테스트 (관리용) */
     public List<Map<String, Object>> probeModels() {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (String model : modelsFor()) {
@@ -136,65 +132,112 @@ public class GeminiVisionService {
 
         List<String> modelsToTry = modelsFor();
         log.info(
-                "gemini classify start admin={} models={} originalBytes={} preparedBytes={} mime={}",
+                "gemini classify start admin={} models={} preparedBytes={}",
                 admin,
                 modelsToTry,
-                prepared.originalBytes(),
-                prepared.preparedBytes(),
-                prepared.mimeType()
+                prepared.preparedBytes()
         );
 
         long started = System.currentTimeMillis();
-        GeminiCallResult call = callModelsInOrder(prepared.bytes(), prepared.mimeType(), modelsToTry);
-        long elapsedMs = System.currentTimeMillis() - started;
-        log.info("gemini classify done model={} elapsedMs={}", call.model(), elapsedMs);
+        List<String> failures = new ArrayList<>();
 
-        if (call.raw() == null || call.raw().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답이 비어 있습니다.");
-        }
-
-        try {
-            JsonNode root = objectMapper.readTree(call.raw());
-            String text = extractGeminiText(root);
-            ParsedVision parsed = parseVisionText(text);
-            String guidance = parsed.guidance();
-            if (guidance.isBlank()) {
-                log.warn("gemini guidance empty, using fallback. raw={}", summarize(text, 200));
-                guidance = defaultGuidance(parsed.predictedType(), parsed.recognizedItem());
+        for (String model : modelsToTry) {
+            if (System.currentTimeMillis() - started >= TOTAL_DEADLINE_MS) {
+                break;
             }
-            return new ClassificationResult(
-                    parsed.predictedType(),
-                    call.model(),
-                    text,
-                    parsed.recognizedItem(),
-                    guidance
-            );
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("gemini response parse failed: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답 파싱 실패: " + e.getMessage());
+            try {
+                long remainingMs = Math.max(4_000L, TOTAL_DEADLINE_MS - (System.currentTimeMillis() - started));
+                ClassificationResult result = tryClassifyOnce(model, prepared.bytes(), prepared.mimeType(), remainingMs);
+                if (result != null) {
+                    log.info(
+                            "gemini classify ok model={} elapsedMs={} guidanceLen={}",
+                            model,
+                            System.currentTimeMillis() - started,
+                            result.guidance().length()
+                    );
+                    return result;
+                }
+                failures.add(model + ": truncated or incomplete response");
+            } catch (ResponseStatusException e) {
+                String reason = e.getReason() != null ? e.getReason() : e.getStatusCode().toString();
+                failures.add(model + ": " + reason);
+                log.warn("gemini model failed model={} reason={}", model, reason);
+            }
         }
+
+        throw new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                buildFinalErrorMessage(modelsToTry, failures)
+        );
+    }
+
+    private ClassificationResult tryClassifyOnce(String model, byte[] imageBytes, String mime, long remainingMs) {
+        String raw = callVision(model, imageBytes, mime, remainingMs);
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(raw);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini JSON 파싱 실패");
+        }
+
+        String finishReason = root.path("candidates").path(0).path("finishReason").asText("");
+        if ("MAX_TOKENS".equalsIgnoreCase(finishReason)) {
+            log.warn("gemini truncated MAX_TOKENS model={}", model);
+            return null;
+        }
+
+        String text = extractGeminiText(root);
+        ParsedVision parsed = parseVisionText(text);
+
+        if (!isGuidanceAcceptable(parsed.guidance())) {
+            log.warn(
+                    "gemini short guidance model={} finish={} raw={}",
+                    model,
+                    finishReason,
+                    summarize(text, 120)
+            );
+            return null;
+        }
+
+        return new ClassificationResult(
+                parsed.predictedType(),
+                model,
+                text,
+                parsed.recognizedItem(),
+                parsed.guidance()
+        );
     }
 
     private List<String> modelsFor() {
+        List<String> configured = new ArrayList<>();
         if (modelsCsv != null && !modelsCsv.isBlank()) {
-            return parseCsv(modelsCsv);
+            configured.addAll(parseCsv(modelsCsv));
         }
-        List<String> models = new ArrayList<>();
-        if (geminiModel != null && !geminiModel.isBlank()) {
-            models.add(geminiModel.trim());
+        if (configured.isEmpty()) {
+            configured.addAll(DEFAULT_VISION_MODELS);
         }
-        if (fallbackModel != null && !fallbackModel.isBlank()) {
-            String fb = fallbackModel.trim();
-            if (!models.contains(fb)) {
-                models.add(fb);
+        return filterVisionModels(configured);
+    }
+
+    private static List<String> filterVisionModels(List<String> models) {
+        List<String> out = new ArrayList<>();
+        for (String model : models) {
+            if (model == null || model.isBlank()) {
+                continue;
+            }
+            String m = model.trim().toLowerCase(Locale.ROOT);
+            boolean blocked = BLOCKED_MODEL_HINTS.stream().anyMatch(m::contains);
+            if (blocked) {
+                continue;
+            }
+            if (!out.contains(model.trim())) {
+                out.add(model.trim());
             }
         }
-        if (!models.contains("gemini-2.5-flash-lite")) {
-            models.add("gemini-2.5-flash-lite");
+        if (out.isEmpty()) {
+            return new ArrayList<>(DEFAULT_VISION_MODELS);
         }
-        return models;
+        return out;
     }
 
     private static List<String> parseCsv(String csv) {
@@ -208,43 +251,15 @@ public class GeminiVisionService {
         return out;
     }
 
-    private GeminiCallResult callModelsInOrder(byte[] imageBytes, String mime, List<String> models) {
-        long deadlineAt = System.currentTimeMillis() + TOTAL_DEADLINE_MS;
-        List<String> failures = new ArrayList<>();
-
-        for (String model : models) {
-            if (System.currentTimeMillis() >= deadlineAt) {
-                throw new ResponseStatusException(
-                        HttpStatus.GATEWAY_TIMEOUT,
-                        "이미지 분석 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
-                );
-            }
-            try {
-                long remainingMs = Math.max(5_000L, deadlineAt - System.currentTimeMillis());
-                String raw = callVision(model, imageBytes, mime, remainingMs);
-                return new GeminiCallResult(raw, model);
-            } catch (ResponseStatusException e) {
-                String reason = e.getReason() != null ? e.getReason() : e.getStatusCode().toString();
-                failures.add(model + ": " + reason);
-                log.warn("gemini model failed model={} status={} reason={}", model, e.getStatusCode().value(), reason);
-            }
-        }
-
-        throw new ResponseStatusException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                buildFinalErrorMessage(models, failures)
-        );
-    }
-
     private String callTextOnly(String model, String prompt) {
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
-        reqBody.put("generationConfig", Map.of("maxOutputTokens", 16, "temperature", 0));
-        return postGenerateContent(model, reqBody, 15);
+        reqBody.put("generationConfig", visionGenerationConfig());
+        return postGenerateContent(model, reqBody, 12);
     }
 
     private String callVision(String model, byte[] imageBytes, String mime, long remainingMs) {
-        long blockSeconds = Math.min(timeoutSeconds, Math.max(5L, remainingMs / 1000L));
+        long blockSeconds = Math.min(timeoutSeconds, Math.max(4L, remainingMs / 1000L));
         String b64 = Base64.getEncoder().encodeToString(imageBytes);
 
         Map<String, Object> inline = new LinkedHashMap<>();
@@ -255,15 +270,40 @@ public class GeminiVisionService {
         parts.add(Map.of("text", VISION_PROMPT));
         parts.add(Map.of("inline_data", inline));
 
-        Map<String, Object> generationConfig = new LinkedHashMap<>();
-        generationConfig.put("temperature", 0.1);
-        generationConfig.put("maxOutputTokens", 512);
-
         Map<String, Object> reqBody = new LinkedHashMap<>();
         reqBody.put("contents", List.of(Map.of("parts", parts)));
-        reqBody.put("generationConfig", generationConfig);
+        reqBody.put("generationConfig", visionGenerationConfig());
 
-        return postGenerateContent(model, reqBody, blockSeconds);
+        try {
+            return postGenerateContent(model, reqBody, blockSeconds);
+        } catch (ResponseStatusException e) {
+            if (isThinkingConfigRejected(e)) {
+                reqBody.put("generationConfig", visionGenerationConfigWithoutThinking());
+                return postGenerateContent(model, reqBody, blockSeconds);
+            }
+            throw e;
+        }
+    }
+
+    private static boolean isThinkingConfigRejected(ResponseStatusException e) {
+        String reason = e.getReason() != null ? e.getReason().toLowerCase(Locale.ROOT) : "";
+        return reason.contains("thinking") || reason.contains("invalid_argument");
+    }
+
+    /** thinking 비활성 — 출력 토큰을 실제 답변에만 사용 */
+    private static Map<String, Object> visionGenerationConfig() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("temperature", 0.1);
+        config.put("maxOutputTokens", 384);
+        config.put("thinkingConfig", Map.of("thinkingBudget", 0));
+        return config;
+    }
+
+    private static Map<String, Object> visionGenerationConfigWithoutThinking() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("temperature", 0.1);
+        config.put("maxOutputTokens", 384);
+        return config;
     }
 
     private String postGenerateContent(String model, Map<String, Object> reqBody, long blockSeconds) {
@@ -286,13 +326,22 @@ public class GeminiVisionService {
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             if (msg.contains("Timeout") || msg.contains("timeout")) {
-                throw new ResponseStatusException(
-                        HttpStatus.GATEWAY_TIMEOUT,
-                        "Gemini 응답 시간 초과 (" + model + ")"
-                );
+                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "Gemini 응답 시간 초과 (" + model + ")");
             }
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 호출 실패 (" + model + "): " + msg);
         }
+    }
+
+    private static boolean isGuidanceAcceptable(String guidance) {
+        if (guidance == null || guidance.isBlank()) {
+            return false;
+        }
+        String g = guidance.trim();
+        if (g.length() < MIN_GUIDANCE_CHARS) {
+            return false;
+        }
+        return g.contains("배출") || g.contains("비우") || g.contains("헹") || g.contains("분리")
+                || g.contains("제거") || g.contains("떼");
     }
 
     private static String buildFinalErrorMessage(List<String> models, List<String> failures) {
@@ -302,10 +351,7 @@ public class GeminiVisionService {
             return billing;
         }
         if (detail.contains("RESOURCE_EXHAUSTED") || detail.contains("429")) {
-            return "Gemini API 호출 한도에 도달했습니다. 잠시 후 다시 시도하거나 AI Studio 결제 설정을 확인해 주세요.";
-        }
-        if (detail.contains("PERMISSION_DENIED")) {
-            return "Gemini API 키가 거부되었습니다. 서버 GEMINI_API_KEY를 확인해 주세요.";
+            return "Gemini API 호출 한도에 도달했습니다. AI Studio 결제 설정을 확인해 주세요.";
         }
         return "Gemini 분석 실패. 시도: " + String.join(" → ", models) + ". " + detail;
     }
@@ -314,55 +360,32 @@ public class GeminiVisionService {
         if (text == null || text.isBlank()) {
             return null;
         }
-        String lower = text.toLowerCase(Locale.ROOT);
-        if (lower.contains("prepayment credits are depleted")) {
-            return "Gemini API 결제 문제입니다. 후불(GCP)과 AI Studio 선불(Prepay) 크레딧은 별도입니다. "
-                    + "Cloud Console에 돈이 있어도 AI Studio 프로젝트에 'No available credits'면 API가 거부됩니다. "
-                    + "AI Studio → 해당 API 키의 프로젝트 → Billing에서 Prepay 충전 또는 "
-                    + "크레딧 있는 프로젝트에서 새 API 키 발급 후 GEMINI_API_KEY 교체.";
+        if (text.toLowerCase(Locale.ROOT).contains("prepayment credits are depleted")) {
+            return "Gemini 선불 크레딧이 소진되었습니다. AI Studio Billing에서 충전하거나 API 키를 갱신해 주세요.";
         }
         return null;
     }
 
     private ResponseStatusException toGeminiException(String model, WebClientResponseException e) {
         int status = e.getStatusCode().value();
-        String body = e.getResponseBodyAsString();
-        GeminiError parsed = parseGeminiError(body, status);
-        log.warn(
-                "gemini api error model={} http={} apiStatus={} message={}",
-                model,
-                status,
-                parsed.apiStatus(),
-                parsed.message()
-        );
-
-        HttpStatus mapped = switch (status) {
-            case 408, 504 -> HttpStatus.GATEWAY_TIMEOUT;
-            default -> HttpStatus.SERVICE_UNAVAILABLE;
-        };
+        GeminiError parsed = parseGeminiError(e.getResponseBodyAsString(), status);
+        log.warn("gemini api error model={} http={} msg={}", model, status, parsed.message());
+        HttpStatus mapped = (status == 408 || status == 504) ? HttpStatus.GATEWAY_TIMEOUT : HttpStatus.SERVICE_UNAVAILABLE;
         return new ResponseStatusException(mapped, parsed.message());
     }
 
     private GeminiError parseGeminiError(String body, int httpStatus) {
         if (body != null && !body.isBlank()) {
             try {
-                JsonNode root = objectMapper.readTree(body);
-                JsonNode err = root.path("error");
+                JsonNode err = objectMapper.readTree(body).path("error");
                 String apiStatus = err.path("status").asText("");
                 String message = err.path("message").asText("");
-
                 if ("PERMISSION_DENIED".equalsIgnoreCase(apiStatus)) {
                     return new GeminiError(apiStatus, "Gemini API 키가 거부되었습니다.");
                 }
-                if ("NOT_FOUND".equalsIgnoreCase(apiStatus) || httpStatus == 404) {
-                    return new GeminiError(apiStatus, "모델 없음: " + message);
-                }
                 if ("RESOURCE_EXHAUSTED".equalsIgnoreCase(apiStatus) || httpStatus == 429) {
                     String billing = billingDepletedMessage(message);
-                    if (billing != null) {
-                        return new GeminiError(apiStatus, billing);
-                    }
-                    return new GeminiError(apiStatus, "RESOURCE_EXHAUSTED: " + message);
+                    return new GeminiError(apiStatus, billing != null ? billing : "RESOURCE_EXHAUSTED: " + message);
                 }
                 if (!message.isBlank()) {
                     return new GeminiError(apiStatus, message.length() > 280 ? message.substring(0, 280) + "…" : message);
@@ -374,7 +397,7 @@ public class GeminiVisionService {
         return new GeminiError("", "Gemini HTTP " + httpStatus);
     }
 
-    /** thinking 모델은 parts[0]이 추론(thought)일 수 있음 → thought 아닌 마지막 text 사용 */
+    /** non-thought 파트 전체를 합침 (thinking 모델 잘림 방지) */
     private String extractGeminiText(JsonNode root) {
         JsonNode blockReason = root.path("promptFeedback").path("blockReason");
         if (!blockReason.isMissingNode() && !blockReason.asText("").isBlank()) {
@@ -390,8 +413,7 @@ public class GeminiVisionService {
         }
 
         JsonNode candidate = candidates.get(0);
-        JsonNode finishReason = candidate.path("finishReason");
-        if ("SAFETY".equalsIgnoreCase(finishReason.asText(""))) {
+        if ("SAFETY".equalsIgnoreCase(candidate.path("finishReason").asText(""))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "안전 정책으로 분석이 차단되었습니다.");
         }
 
@@ -400,8 +422,8 @@ public class GeminiVisionService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 응답 형식이 올바르지 않습니다.");
         }
 
-        String lastNonThought = "";
-        String anyText = "";
+        StringBuilder answer = new StringBuilder();
+        StringBuilder fallback = new StringBuilder();
         for (JsonNode part : parts) {
             if (part.path("text").isMissingNode()) {
                 continue;
@@ -410,24 +432,31 @@ public class GeminiVisionService {
             if (text.isEmpty()) {
                 continue;
             }
-            anyText = text;
+            if (fallback.length() > 0) {
+                fallback.append("\n");
+            }
+            fallback.append(text);
+
             if (!part.path("thought").asBoolean(false)) {
-                lastNonThought = text;
+                if (answer.length() > 0) {
+                    answer.append("\n");
+                }
+                answer.append(text);
             }
         }
 
-        if (!lastNonThought.isBlank()) {
-            return lastNonThought;
+        if (answer.length() > 0) {
+            return answer.toString();
         }
-        if (!anyText.isBlank()) {
-            return anyText;
+        if (fallback.length() > 0) {
+            return fallback.toString();
         }
         throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini 텍스트 응답이 비어 있습니다.");
     }
 
     private ParsedVision parseVisionText(String text) {
         if (text == null || text.isBlank()) {
-            return new ParsedVision("GENERAL", "", "");
+            return new ParsedVision("GENERAL", "", defaultGuidance("GENERAL", ""));
         }
 
         String[] lines = text.trim().split("\\R");
@@ -455,7 +484,11 @@ public class GeminiVisionService {
             appendGuidance(guidance, line);
         }
 
-        return new ParsedVision(predicted, recognizedItem, guidance.toString());
+        String guidanceText = guidance.toString();
+        if (!isGuidanceAcceptable(guidanceText)) {
+            guidanceText = defaultGuidance(predicted, recognizedItem);
+        }
+        return new ParsedVision(predicted, recognizedItem, guidanceText);
     }
 
     private static void appendGuidance(StringBuilder guidance, String line) {
@@ -490,11 +523,7 @@ public class GeminiVisionService {
         if (text == null) {
             return "";
         }
-        return text
-                .replace("**", "")
-                .replace("__", "")
-                .replaceAll("^#+\\s*", "")
-                .trim();
+        return text.replace("**", "").replace("__", "").replaceAll("^#+\\s*", "").trim();
     }
 
     private String normalizeTypeToken(String text) {
@@ -502,37 +531,20 @@ public class GeminiVisionService {
             return "GENERAL";
         }
         String firstLine = stripMarkdown(text.trim().split("\\R", 2)[0]).trim().toUpperCase(Locale.ROOT);
-        if (firstLine.contains("HAZARD")) {
-            return "HAZARD";
-        }
-        if (firstLine.contains("PET")) {
-            return "PET";
-        }
-        if (firstLine.contains("CAN")) {
-            return "CAN";
-        }
-        if (firstLine.contains("GENERAL")) {
-            return "GENERAL";
-        }
+        if (firstLine.contains("HAZARD")) return "HAZARD";
+        if (firstLine.contains("PET")) return "PET";
+        if (firstLine.contains("CAN")) return "CAN";
+        if (firstLine.contains("GENERAL")) return "GENERAL";
         return "GENERAL";
     }
 
     private static String summarize(String text, int max) {
-        if (text == null) {
-            return "";
-        }
+        if (text == null) return "";
         String t = text.replaceAll("\\s+", " ").trim();
         return t.length() > max ? t.substring(0, max) + "…" : t;
     }
 
-    private record GeminiError(String apiStatus, String message) {
-    }
-
-    private record GeminiCallResult(String raw, String model) {
-    }
-
-    private record ParsedVision(String predictedType, String recognizedItem, String guidance) {
-    }
+    private record GeminiError(String apiStatus, String message) {}
 
     public record ClassificationResult(
             String predictedType,
@@ -540,6 +552,5 @@ public class GeminiVisionService {
             String rawText,
             String recognizedItem,
             String guidance
-    ) {
-    }
+    ) {}
 }

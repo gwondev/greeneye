@@ -31,7 +31,7 @@ public class WebClientConfig {
     /** Gemini 전용 — Cloudflare 터널(~100s) 안에 끝나도록 짧은 타임아웃 */
     @Bean
     public WebClient geminiWebClient(
-            @Value("${gemini.api.timeout-seconds:45}") int timeoutSeconds
+            @Value("${gemini.api.timeout-seconds:18}") int timeoutSeconds
     ) {
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(timeoutSeconds))
