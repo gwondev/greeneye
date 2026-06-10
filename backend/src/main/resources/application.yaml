@@ -37,11 +37,10 @@ google:
 gemini:
   api:
     key: ${GEMINI_API_KEY:}
-    # 분류: gemini-3.5-flash (비전). 한도/비용 이슈 시 GEMINI_MODEL=gemini-3.1-flash-lite
-    model: ${GEMINI_MODEL:gemini-3.5-flash}
-    fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-3.1-flash-lite}
+    # 분류: gemini-3-flash-preview (비전). 실패 시 gemini-2.5-flash 로 폴백
+    model: ${GEMINI_MODEL:gemini-3-flash-preview}
+    fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-2.5-flash}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:45}
-    max-retries: ${GEMINI_MAX_RETRIES:1}
     max-image-side: ${GEMINI_MAX_IMAGE_SIDE:1280}
     jpeg-quality: ${GEMINI_JPEG_QUALITY:0.82}
 

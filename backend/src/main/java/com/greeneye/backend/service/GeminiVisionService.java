@@ -41,17 +41,14 @@ public class GeminiVisionService {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    @Value("${gemini.api.model:gemini-3.5-flash}")
+    @Value("${gemini.api.model:gemini-3-flash-preview}")
     private String geminiModel;
 
-    @Value("${gemini.api.fallback-model:gemini-3.1-flash-lite}")
+    @Value("${gemini.api.fallback-model:gemini-2.5-flash}")
     private String fallbackModel;
 
-    @Value("${gemini.api.timeout-seconds:55}")
+    @Value("${gemini.api.timeout-seconds:45}")
     private int timeoutSeconds;
-
-    @Value("${gemini.api.max-retries:1}")
-    private int maxRetries;
 
     @Value("${gemini.api.max-image-side:1280}")
     private int maxImageSide;
@@ -80,7 +77,7 @@ public class GeminiVisionService {
         );
 
         long started = System.currentTimeMillis();
-        GeminiCallResult call = callGeminiWithRetry(prepared.bytes(), prepared.mimeType(), admin, modelsToTry);
+        GeminiCallResult call = callModelsInOrder(prepared.bytes(), prepared.mimeType(), modelsToTry);
         long elapsedMs = System.currentTimeMillis() - started;
         log.info("gemini classify done model={} elapsedMs={}", call.model(), elapsedMs);
 
@@ -103,57 +100,77 @@ public class GeminiVisionService {
 
     private List<String> modelsFor() {
         List<String> models = new ArrayList<>();
-        models.add(geminiModel);
-        if (fallbackModel != null && !fallbackModel.isBlank() && !models.contains(fallbackModel)) {
-            models.add(fallbackModel);
+        if (geminiModel != null && !geminiModel.isBlank()) {
+            models.add(geminiModel.trim());
+        }
+        if (fallbackModel != null && !fallbackModel.isBlank() && !models.contains(fallbackModel.trim())) {
+            models.add(fallbackModel.trim());
         }
         return models;
     }
 
-    private GeminiCallResult callGeminiWithRetry(byte[] imageBytes, String mime, boolean admin, List<String> models) {
+    /** 모델당 1회만 호출. 429/404 등은 다음 폴백 모델로 넘김 (같은 모델 재시도로 한도 소진 방지). */
+    private GeminiCallResult callModelsInOrder(byte[] imageBytes, String mime, List<String> models) {
         long deadlineAt = System.currentTimeMillis() + TOTAL_DEADLINE_MS;
-        int attemptsPerModel = admin ? 1 : Math.max(0, maxRetries) + 1;
-        ResponseStatusException last = null;
+        List<String> failures = new ArrayList<>();
 
         for (String model : models) {
-            for (int attempt = 1; attempt <= attemptsPerModel; attempt++) {
-                if (System.currentTimeMillis() >= deadlineAt) {
-                    throw new ResponseStatusException(
-                            HttpStatus.GATEWAY_TIMEOUT,
-                            "이미지 분석 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
-                    );
-                }
-                try {
-                    long remainingMs = Math.max(5_000L, deadlineAt - System.currentTimeMillis());
-                    String raw = callGeminiOnce(imageBytes, mime, model, remainingMs);
-                    return new GeminiCallResult(raw, model);
-                } catch (ResponseStatusException e) {
-                    last = e;
-                    if (!isRetryable(e)) {
-                        throw e;
-                    }
-                    log.warn(
-                            "gemini retry admin={} model={} attempt={}/{} reason={}",
-                            admin,
-                            model,
-                            attempt,
-                            attemptsPerModel,
-                            e.getReason()
-                    );
-                    if (attempt < attemptsPerModel) {
-                        sleepQuietly(admin ? 500L : 1000L * attempt);
+            if (System.currentTimeMillis() >= deadlineAt) {
+                throw new ResponseStatusException(
+                        HttpStatus.GATEWAY_TIMEOUT,
+                        "이미지 분석 응답 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요."
+                );
+            }
+            try {
+                long remainingMs = Math.max(5_000L, deadlineAt - System.currentTimeMillis());
+                String raw = callGeminiOnce(imageBytes, mime, model, remainingMs, true);
+                return new GeminiCallResult(raw, model);
+            } catch (ResponseStatusException e) {
+                String reason = e.getReason() != null ? e.getReason() : e.getStatusCode().toString();
+                failures.add(model + ": " + reason);
+                log.warn("gemini model failed model={} status={} reason={}", model, e.getStatusCode().value(), reason);
+
+                if (shouldRetryWithoutThinkingConfig(e)) {
+                    try {
+                        long remainingMs = Math.max(5_000L, deadlineAt - System.currentTimeMillis());
+                        String raw = callGeminiOnce(imageBytes, mime, model, remainingMs, false);
+                        return new GeminiCallResult(raw, model);
+                    } catch (ResponseStatusException retryEx) {
+                        String retryReason = retryEx.getReason() != null ? retryEx.getReason() : retryEx.getStatusCode().toString();
+                        failures.add(model + "(no-thinking): " + retryReason);
+                        log.warn("gemini model retry failed model={} reason={}", model, retryReason);
                     }
                 }
             }
         }
 
-        throw last != null ? last : new ResponseStatusException(
+        String detail = String.join(" | ", failures);
+        throw new ResponseStatusException(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "Gemini 호출에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                buildFinalErrorMessage(models, detail)
         );
     }
 
-    private String callGeminiOnce(byte[] imageBytes, String mime, String model, long remainingMs) {
+    private static boolean shouldRetryWithoutThinkingConfig(ResponseStatusException e) {
+        String reason = e.getReason() != null ? e.getReason() : "";
+        return reason.contains("INVALID_ARGUMENT")
+                || reason.contains("thinking")
+                || reason.contains("generationConfig");
+    }
+
+    private static String buildFinalErrorMessage(List<String> models, String detail) {
+        if (detail.contains("RESOURCE_EXHAUSTED") || detail.contains("429")) {
+            return "Gemini API 한도 또는 모델 접근 권한 문제입니다. "
+                    + "시도 모델: " + String.join(", ", models)
+                    + ". Google AI Studio에서 API 키·결제·모델 사용 가능 여부를 확인해 주세요.";
+        }
+        if (detail.contains("PERMISSION_DENIED")) {
+            return "Gemini API 키가 거부되었습니다. 서버 GEMINI_API_KEY 설정을 확인해 주세요.";
+        }
+        return "Gemini 분석에 실패했습니다. 시도 모델: " + String.join(", ", models) + ". 상세: " + detail;
+    }
+
+    private String callGeminiOnce(byte[] imageBytes, String mime, String model, long remainingMs, boolean withThinking) {
         long blockSeconds = Math.min(timeoutSeconds, Math.max(5L, remainingMs / 1000L));
         String b64 = Base64.getEncoder().encodeToString(imageBytes);
 
@@ -171,7 +188,7 @@ public class GeminiVisionService {
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", 0.1);
         generationConfig.put("maxOutputTokens", 64);
-        if (model.startsWith("gemini-3")) {
+        if (withThinking && model.contains("3.5-flash") && !model.contains("preview")) {
             generationConfig.put("thinkingConfig", Map.of("thinkingLevel", "MINIMAL"));
         }
 
@@ -194,7 +211,7 @@ public class GeminiVisionService {
                     .bodyToMono(String.class)
                     .block(Duration.ofSeconds(blockSeconds));
         } catch (WebClientResponseException e) {
-            throw toGeminiException(e);
+            throw toGeminiException(model, e);
         } catch (Exception e) {
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             if (msg.contains("Timeout") || msg.contains("timeout")) {
@@ -207,73 +224,62 @@ public class GeminiVisionService {
         }
     }
 
-    private ResponseStatusException toGeminiException(WebClientResponseException e) {
+    private ResponseStatusException toGeminiException(String model, WebClientResponseException e) {
         int status = e.getStatusCode().value();
         String body = e.getResponseBodyAsString();
-        String friendly = parseGeminiErrorMessage(body, status);
-        log.warn("gemini api error http={} message={}", status, friendly);
+        GeminiError parsed = parseGeminiError(body, status);
+        log.warn(
+                "gemini api error model={} http={} status={} message={} bodySnippet={}",
+                model,
+                status,
+                parsed.apiStatus(),
+                parsed.message(),
+                body != null && body.length() > 200 ? body.substring(0, 200) + "…" : body
+        );
 
         HttpStatus mapped = switch (status) {
-            case 404 -> HttpStatus.SERVICE_UNAVAILABLE;
             case 408, 504 -> HttpStatus.GATEWAY_TIMEOUT;
-            case 429 -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.SERVICE_UNAVAILABLE;
         };
-        if (status == 404) {
-            friendly = "Gemini 모델을 사용할 수 없습니다. 서버 설정(GEMINI_MODEL)을 확인해 주세요.";
-        }
-        return new ResponseStatusException(mapped, friendly);
+        return new ResponseStatusException(mapped, parsed.message());
     }
 
-    private String parseGeminiErrorMessage(String body, int httpStatus) {
+    private GeminiError parseGeminiError(String body, int httpStatus) {
         if (body != null && !body.isBlank()) {
             try {
                 JsonNode root = objectMapper.readTree(body);
                 JsonNode err = root.path("error");
-                String status = err.path("status").asText("");
+                String apiStatus = err.path("status").asText("");
                 String message = err.path("message").asText("");
-                if ("RESOURCE_EXHAUSTED".equalsIgnoreCase(status) || httpStatus == 429) {
-                    return "Gemini API 호출 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.";
+
+                if ("PERMISSION_DENIED".equalsIgnoreCase(apiStatus)) {
+                    return new GeminiError(apiStatus, "Gemini API 키가 거부되었습니다. 서버 설정을 확인해 주세요.");
                 }
-                if ("PERMISSION_DENIED".equalsIgnoreCase(status)) {
-                    return "Gemini API 키가 거부되었습니다. 서버 설정을 확인해 주세요.";
+                if ("NOT_FOUND".equalsIgnoreCase(apiStatus) || httpStatus == 404) {
+                    return new GeminiError(apiStatus, "Gemini 모델을 찾을 수 없습니다: " + message);
                 }
-                if ("INVALID_ARGUMENT".equalsIgnoreCase(status)) {
-                    return "이미지 형식이 올바르지 않습니다. 다른 사진으로 시도해 주세요.";
+                if ("INVALID_ARGUMENT".equalsIgnoreCase(apiStatus)) {
+                    return new GeminiError(apiStatus, "Gemini 요청 형식 오류: " + message);
+                }
+                if ("RESOURCE_EXHAUSTED".equalsIgnoreCase(apiStatus) || httpStatus == 429) {
+                    return new GeminiError(
+                            apiStatus,
+                            "RESOURCE_EXHAUSTED: " + (message.isBlank() ? "quota or model access limit" : message)
+                    );
                 }
                 if (!message.isBlank()) {
-                    return message.length() > 300 ? message.substring(0, 300) + "…" : message;
+                    return new GeminiError(apiStatus, message.length() > 300 ? message.substring(0, 300) + "…" : message);
                 }
             } catch (Exception ignored) {
                 // fall through
             }
-            if (body.length() > 300) {
-                body = body.substring(0, 300) + "…";
-            }
-            return "Gemini API 오류 HTTP " + httpStatus + ": " + body;
+            String snippet = body.length() > 300 ? body.substring(0, 300) + "…" : body;
+            return new GeminiError("", "Gemini API 오류 HTTP " + httpStatus + ": " + snippet);
         }
-        return "Gemini API 오류 HTTP " + httpStatus;
+        return new GeminiError("", "Gemini API 오류 HTTP " + httpStatus);
     }
 
-    private static boolean isRetryable(ResponseStatusException e) {
-        HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
-        if (status == null) {
-            return false;
-        }
-        String reason = e.getReason() != null ? e.getReason() : "";
-        if (reason.contains("키가 거부")) {
-            return false;
-        }
-        return status == HttpStatus.SERVICE_UNAVAILABLE
-                || status == HttpStatus.GATEWAY_TIMEOUT;
-    }
-
-    private static void sleepQuietly(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
+    private record GeminiError(String apiStatus, String message) {
     }
 
     private String extractGeminiText(JsonNode root) {
