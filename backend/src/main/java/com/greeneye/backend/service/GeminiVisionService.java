@@ -546,6 +546,8 @@ public class GeminiVisionService {
 
     private record GeminiError(String apiStatus, String message) {}
 
+    private record ParsedVision(String predictedType, String recognizedItem, String guidance) {}
+
     public record ClassificationResult(
             String predictedType,
             String model,
