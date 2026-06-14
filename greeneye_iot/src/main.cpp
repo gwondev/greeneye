@@ -8,12 +8,12 @@
 #include <time.h>
 
 // ========== 모듈 ID (DB modules.serial_number, MQTT greeneye/<id>/…) ==========
-// platformio.ini 의 build_flags -DGREENEYE_MODULE_SERIAL=… 로만 설정 (문자열 매크로 이슈 방지용 stringify)
+// platformio.ini → build_flags = -DGREENEYE_MODULE_SERIAL=g20  (여기만 바꾸면 됨)
+#ifndef GREENEYE_MODULE_SERIAL
+#error Set GREENEYE_MODULE_SERIAL in platformio.ini (build_flags = -DGREENEYE_MODULE_SERIAL=g20)
+#endif
 #define GREENEYE_MS_XSTR(s) #s
 #define GREENEYE_MS_STR(s) GREENEYE_MS_XSTR(s)
-#ifndef GREENEYE_MODULE_SERIAL
-#define GREENEYE_MODULE_SERIAL g10
-#endif
 static const char MODULE_SERIAL_BUF[] = GREENEYE_MS_STR(GREENEYE_MODULE_SERIAL);
 static const char *const MODULE_SERIAL = MODULE_SERIAL_BUF;
 
