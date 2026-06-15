@@ -278,6 +278,7 @@ const Map = () => {
       await apiFetch(`/modules/${serialNumber}/ready`, {
         method: "POST",
         body: JSON.stringify({
+          oauthId: user?.oauthId,
           userId: user?.nickname,
           selectedType: selected,
           predictedType: selected,

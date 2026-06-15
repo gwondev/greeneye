@@ -103,15 +103,27 @@ public class ModuleController {
             @PathVariable String serialNumber,
             @RequestBody Map<String, String> body
     ) {
-        String nickname = body.get("userId");
-        if (nickname == null || nickname.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId(nickname) is required");
-        }
-
         Module module = moduleRepository.findBySerialNumber(serialNumber)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
-        User user = userRepository.findByNickname(nickname)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // oauthId 우선 — localStorage 닉네임이 회원 삭제·ID 재정렬로 어긋나도 발행이 막히지 않게.
+        String oauthId = body.get("oauthId");
+        String nickname = body.get("userId");
+        User user = null;
+        if (oauthId != null && !oauthId.isBlank()) {
+            user = userRepository.findByOauthId(oauthId.trim()).orElse(null);
+        }
+        if (user == null && nickname != null && !nickname.isBlank()) {
+            user = userRepository.findByNickname(nickname.trim()).orElse(null);
+        }
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        // 디바이스가 status 로 되돌려줄 식별자는 DB 의 현재 닉네임으로 고정 (CHECK 매칭 일관성).
+        nickname = user.getNickname();
+        if (nickname == null || nickname.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "닉네임 설정이 필요합니다.");
+        }
 
         module.setStatus("READY");
         module.setLastHeartbeat(LocalDateTime.now());

@@ -269,17 +269,23 @@ void handleIncomingCmdPayload(const char *payload) {
                     (unsigned long long)issuedMs, (unsigned long long)s_lastCmdIssuedAt);
       return;
     }
-    // NTP 동기화된 경우에만 오래된 retained(재부팅 직후) 폐기. 시계 '미래' 검사는 ESP 시차로 정상 cmd가 버려져 제거.
-    if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) {
-      time_t tsec = time(nullptr);
-      if (tsec > 1700000000) {
-        uint64_t nowMs = (uint64_t)tsec * 1000ULL;
-        const uint64_t staleMax = 600000ULL;  // 10분 지난 retained cmd
-        if (nowMs > issuedMs + staleMax) {
-          Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n",
-                        (unsigned long long)(nowMs - issuedMs));
-          return;
-        }
+    // 한 번 본 issuedAt 은 재접속 시 retained 로 또 와도 다시 처리하지 않도록 즉시 기록.
+    // (sntp_get_sync_status() 는 주기적 재동기화로 잠깐 풀려서 stale 가드를 우회 → 유령 READY 발생함)
+    s_lastCmdIssuedAt = issuedMs;
+    // 한 번이라도 NTP 가 맞으면 time() 은 계속 유효 → sync status 플랩과 무관하게 stale 판정.
+    time_t tsec = time(nullptr);
+    if (tsec > 1700000000) {
+      uint64_t nowMs = (uint64_t)tsec * 1000ULL;
+      const uint64_t staleMax = 60000ULL;  // 60초 지난 cmd = 오래된 retained, 폐기 (READY 창은 10초)
+      if (nowMs + staleMax < issuedMs) {
+        Serial.printf("cmd ignored future issuedAt skew_ms=%llu\n",
+                      (unsigned long long)(issuedMs - nowMs));
+        return;
+      }
+      if (nowMs > issuedMs + staleMax) {
+        Serial.printf("cmd ignored stale issuedAt age_ms=%llu\n",
+                      (unsigned long long)(nowMs - issuedMs));
+        return;
       }
     }
   }
@@ -290,9 +296,6 @@ void handleIncomingCmdPayload(const char *payload) {
   if (!uid || !uid[0]) {
     Serial.println("no userId/nickname");
     return;
-  }
-  if (issuedMs > 0) {
-    s_lastCmdIssuedAt = issuedMs;
   }
   armReady(uid);
 }
