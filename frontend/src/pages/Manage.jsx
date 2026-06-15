@@ -26,7 +26,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getUser } from "../services/auth";
+import { getUser, clearAuth } from "../services/auth";
 import { apiFetch } from "../services/api";
 import { moduleTypeLabel } from "../constants/wasteLabels";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
@@ -235,9 +235,15 @@ const Manage = () => {
     if (!userDeleteTarget) return;
     try {
       setSaving(true);
+      const deletedOauthId = userDeleteTarget.oauthId;
       await apiFetch(`/users/${userDeleteTarget.id}`, { method: "DELETE" });
       setUserDeleteTarget(null);
       setSuccess("유저가 삭제되었습니다.");
+      if (deletedOauthId && deletedOauthId === currentUser?.oauthId) {
+        clearAuth();
+        navigate("/");
+        return;
+      }
       loadOverview();
     } catch (e) {
       alert(e.message || "삭제 실패");

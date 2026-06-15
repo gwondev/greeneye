@@ -142,6 +142,19 @@ public class UserController {
         tableIdCompactionService.compactAllAfterDelete();
     }
 
+    /** oauthId 기준 교환 — localStorage id가 DB 재정렬 후 틀어져도 안전 */
+    @PostMapping("/exchange")
+    @Transactional
+    public Map<String, Object> exchangeRewardByOauth(@RequestBody Map<String, Object> body) {
+        String oauthId = body.get("oauthId") == null ? "" : body.get("oauthId").toString().trim();
+        if (oauthId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
+        }
+        User user = userRepository.findByOauthId(oauthId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return exchangeRewardForUser(user, body);
+    }
+
     @PostMapping("/{id}/exchange")
     @Transactional
     public Map<String, Object> exchangeReward(
@@ -150,7 +163,10 @@ public class UserController {
     ) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return exchangeRewardForUser(user, body);
+    }
 
+    private Map<String, Object> exchangeRewardForUser(User user, Map<String, Object> body) {
         int cost = parseInt(body.get("cost"), 0);
         if (cost <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cost must be positive");

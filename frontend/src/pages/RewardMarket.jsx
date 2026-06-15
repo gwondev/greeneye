@@ -12,7 +12,7 @@ import {
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
 import LocalMallRoundedIcon from "@mui/icons-material/LocalMallRounded";
 import { useNavigate } from "react-router-dom";
-import { getUser, saveUser } from "../services/auth";
+import { getUser, saveUser, ensureSession } from "../services/auth";
 import { apiFetch } from "../services/api";
 
 const ITEMS = [
@@ -28,26 +28,25 @@ const RewardMarket = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [toastSeverity, setToastSeverity] = useState("success");
-  const nickname = currentUser?.nickname;
+  const oauthId = currentUser?.oauthId;
 
   useEffect(() => {
     const loadNowRewards = async () => {
       try {
-        const users = await apiFetch("/users");
-        if (!Array.isArray(users)) return;
-        const me = users.find((u) => (u?.nickname || "") === (nickname || ""));
-        if (!me) return;
-        const next = Number(me.nowRewards ?? 0);
-        setNowRewards(next);
-        const merged = { ...(currentUser || {}), ...me };
-        saveUser(merged);
-        setCurrentUser(merged);
+        const session = await ensureSession();
+        if (session.status === "ok" || session.status === "offline") {
+          const synced = session.user;
+          if (synced) {
+            setCurrentUser(synced);
+            setNowRewards(Number(synced.nowRewards ?? 0));
+          }
+        }
       } catch {
         // ignore
       }
     };
     loadNowRewards();
-  }, [nickname]);
+  }, [oauthId]);
 
   const requestExchange = async (item) => {
     if (nowRewards < item.need) {
@@ -55,16 +54,17 @@ const RewardMarket = () => {
       setToast(`리워드가 부족합니다. (${item.need} 필요)`);
       return;
     }
-    if (!currentUser?.id) {
+    if (!currentUser?.oauthId) {
       setToastSeverity("error");
       setToast("로그인 정보가 올바르지 않습니다.");
       return;
     }
     try {
       setLoading(true);
-      const res = await apiFetch(`/users/${currentUser.id}/exchange`, {
+      const res = await apiFetch("/users/exchange", {
         method: "POST",
         body: JSON.stringify({
+          oauthId: currentUser.oauthId,
           cost: item.need,
           item: item.value,
         }),

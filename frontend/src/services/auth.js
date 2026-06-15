@@ -83,3 +83,43 @@ export function clearAuth() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
+
+function mergeUserFromServer(cached, serverUser) {
+  const oauthId = serverUser?.oauthId ?? cached?.oauthId;
+  return { ...cached, ...serverUser, oauthId };
+}
+
+function isUserNotFoundError(error) {
+  const msg = String(error?.message || "");
+  return msg.includes("User not found") || msg.includes("404");
+}
+
+/**
+ * localStorage 세션을 DB와 맞춤.
+ * - deleted: DB에 없음 → clearAuth
+ * - needs_nickname: oauthId는 있으나 닉네임 미설정
+ * - ok: 정상
+ * - offline: 네트워크 오류 등 → 캐시 유지
+ */
+export async function ensureSession() {
+  const cached = getUser();
+  if (!cached?.oauthId) {
+    return { status: "unauthenticated" };
+  }
+
+  try {
+    const res = await apiFetch(`/auth/session?oauthId=${encodeURIComponent(cached.oauthId)}`);
+    const user = mergeUserFromServer(cached, res?.user);
+    saveUser(user);
+    if (res?.isNewUser) {
+      return { status: "needs_nickname", user };
+    }
+    return { status: "ok", user };
+  } catch (error) {
+    if (isUserNotFoundError(error)) {
+      clearAuth();
+      return { status: "deleted" };
+    }
+    return { status: "offline", user: cached };
+  }
+}

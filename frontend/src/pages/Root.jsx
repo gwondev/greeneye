@@ -6,7 +6,7 @@ import DeviceHubRoundedIcon from "@mui/icons-material/DeviceHubRounded";
 import WorkspacePremiumRoundedIcon from "@mui/icons-material/WorkspacePremiumRounded";
 import MapRoundedIcon from "@mui/icons-material/MapRounded";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loginWithGoogleCredential,
   saveAuth,
@@ -14,6 +14,7 @@ import {
   isDevBypass,
   saveUser,
   DEV_OAUTH_ID,
+  ensureSession,
 } from "../services/auth";
 import { GoogleLogin } from "@react-oauth/google";
 
@@ -54,12 +55,43 @@ const featureItems = [
 
 const Root = () => {
   const navigate = useNavigate();
-  const user = getUser();
+  const [user, setUser] = useState(() => getUser());
   const navigateRef = useRef(navigate);
 
   useEffect(() => {
     navigateRef.current = navigate;
   }, [navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!getUser()?.oauthId) {
+        setUser(null);
+        return;
+      }
+
+      const result = await ensureSession();
+      if (cancelled) return;
+
+      if (result.status === "deleted" || result.status === "unauthenticated") {
+        setUser(null);
+        return;
+      }
+      if (result.status === "needs_nickname") {
+        setUser(result.user);
+        navigateRef.current("/nickname");
+        return;
+      }
+      if (result.user) {
+        setUser(result.user);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLocalDevLogin = () => {
     saveUser({

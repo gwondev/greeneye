@@ -157,8 +157,7 @@ const Map = () => {
         const [data, users] = await Promise.all([apiFetch("/modules"), apiFetch("/users")]);
         setModules(Array.isArray(data) ? data : []);
         if (Array.isArray(users)) {
-          const nick = user?.nickname;
-          const me = users.find((u) => u?.nickname === nick);
+          const me = users.find((u) => u?.oauthId === user?.oauthId);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
             const prevN = Number(prev) || 0;
@@ -204,8 +203,7 @@ const Map = () => {
         const [data, users] = await Promise.all([apiFetch("/modules"), apiFetch("/users")]);
         setModules(Array.isArray(data) ? data : []);
         if (Array.isArray(users)) {
-          const nick = user?.nickname;
-          const me = users.find((u) => u?.nickname === nick);
+          const me = users.find((u) => u?.oauthId === user?.oauthId);
           const nextRewards = Number(me?.nowRewards ?? 0);
           setMyRewards((prev) => {
             const prevN = Number(prev) || 0;

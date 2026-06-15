@@ -58,7 +58,28 @@ public class AuthController {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        // 프론트에서 기대하는 key들을 고정해서 내려줌 (oauthId가 null/직렬화 불일치로 안 내려오는 케이스 방지)
+        return sessionPayload(user, oauthId);
+    }
+
+    /** 브라우저 localStorage와 DB 사용자 정보 동기화 (삭제·ID 재정렬 후 stale 세션 감지) */
+    @GetMapping("/session")
+    public Map<String, Object> session(@RequestParam String oauthId) {
+        if (oauthId == null || oauthId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "oauthId is required");
+        }
+        User user = userRepository.findByOauthId(oauthId.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return sessionPayload(user, user.getOauthId());
+    }
+
+    private static Map<String, Object> sessionPayload(User user, String oauthId) {
+        return Map.of(
+                "user", toUserDto(user, oauthId),
+                "isNewUser", user.getNickname() == null
+        );
+    }
+
+    private static Map<String, Object> toUserDto(User user, String oauthId) {
         Map<String, Object> userDTO = new HashMap<>();
         userDTO.put("id", user.getId());
         userDTO.put("oauthId", oauthId);
@@ -73,11 +94,7 @@ public class AuthController {
         userDTO.put("cameraDailyCount", user.getCameraDailyCount());
         userDTO.put("cameraDailyDate", user.getCameraDailyDate());
         userDTO.put("lastCameraAt", user.getLastCameraAt());
-
-        return Map.of(
-            "user", userDTO,
-            "isNewUser", user.getNickname() == null
-        );
+        return userDTO;
     }
 
     @PutMapping("/nickname")
@@ -109,21 +126,6 @@ public class AuthController {
         user.setNickname(trimmedNickname);
         User savedUser = userRepository.save(user);
 
-        Map<String, Object> userDTO = new HashMap<>();
-        userDTO.put("id", savedUser.getId());
-        userDTO.put("oauthId", oauthId);
-        userDTO.put("email", savedUser.getEmail());
-        userDTO.put("nickname", savedUser.getNickname());
-        userDTO.put("role", savedUser.getRole());
-        userDTO.put("status", savedUser.getStatus());
-        userDTO.put("nowRewards", savedUser.getNowRewards());
-        userDTO.put("totalRewards", savedUser.getTotalRewards());
-        userDTO.put("createdAt", savedUser.getCreatedAt());
-        userDTO.put("lastLoginAt", savedUser.getLastLoginAt());
-        userDTO.put("cameraDailyCount", savedUser.getCameraDailyCount());
-        userDTO.put("cameraDailyDate", savedUser.getCameraDailyDate());
-        userDTO.put("lastCameraAt", savedUser.getLastCameraAt());
-
-        return Map.of("user", userDTO, "updated", true);
+        return Map.of("user", toUserDto(savedUser, oauthId), "updated", true);
     }
 }

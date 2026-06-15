@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
 import Root from "./pages/Root";
 import Manage from "./pages/Manage";
@@ -19,7 +20,7 @@ import RewardMarket from "./pages/RewardMarket";
 import Test from "./pages/Test";
 import TeamIntro from "./pages/TeamIntro";
 import ProjectIntro from "./pages/ProjectIntro";
-import { isAuthenticated, getUser } from "./services/auth";
+import { isAuthenticated, ensureSession } from "./services/auth";
 
 const theme = createTheme({
   palette: {
@@ -33,12 +34,47 @@ const theme = createTheme({
   },
 });
 
+function ProtectedRoute({ children, adminOnly = false }) {
+  const navigate = useNavigate();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!isAuthenticated()) {
+        if (!cancelled) navigate("/", { replace: true });
+        return;
+      }
+
+      const result = await ensureSession();
+      if (cancelled) return;
+
+      if (result.status === "unauthenticated" || result.status === "deleted") {
+        navigate("/", { replace: true });
+        return;
+      }
+      if (result.status === "needs_nickname") {
+        navigate("/nickname", { replace: true });
+        return;
+      }
+      if (adminOnly && result.user?.role !== "ADMIN") {
+        navigate("/map", { replace: true });
+        return;
+      }
+      setReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, adminOnly]);
+
+  if (!ready) return null;
+  return children;
+}
+
 function App() {
-  const ProtectedRoute = ({ children, adminOnly = false }) => {
-    if (!isAuthenticated()) return <Navigate to="/" replace />;
-    if (adminOnly && getUser()?.role !== "ADMIN") return <Navigate to="/map" replace />;
-    return children;
-  };
 
   return (
     <ThemeProvider theme={theme}>
