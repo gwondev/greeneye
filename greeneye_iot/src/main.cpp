@@ -25,7 +25,7 @@ static const char *const MODULE_SERIAL = MODULE_SERIAL_BUF;
 static const char *MQTT_WS_URI = "ws://mqtt-greeneye.gwon.run:80";
 
 // ========== WiFi ==========
-static const char *WIFI_SSIDS[] = {"gwon", "iptime"};
+static const char *WIFI_SSIDS[] = {"gwon", "iptime", "sumin"};
 static const char *WIFI_PASSWORDS[] = {"00000000", "Gwondev0323", ""};
 static const int WIFI_SSID_COUNT = 2;
 static const int WIFI_PASSWORD_COUNT = 3;
@@ -39,9 +39,13 @@ static const int PIN_LED_B = 27;
 // FULL: 椰꾧퀡??10cm 沃섎챶彛??1??볦퍢 ?怨쀫꺗 ?醫??????춸 ?袁れ넎
 static const unsigned long FULL_DETECT_MS = 60UL * 60UL * 1000UL;  // 1 hour
 static const float FULL_NEAR_CM = 10.0f;
-// READY: 직전 샘플 대비 가까워짐만 CHECK (~20cm 좁은 구간 노이즈 무시)
-static const float READY_DROP_CM = 4.0f;
-static const int READY_ECHO_LOST_TICKS_REQUIRED = 3;
+// READY → CHECK: READY 시작 기준선 대비 실제 투입만 인식 (노이즈·에코 소실 오탐 방지)
+static const unsigned long READY_SETTLE_MS = 500UL;
+static const int READY_BASELINE_SAMPLES = 6;
+static const float READY_DROP_FROM_BASELINE_CM = 12.0f;
+static const int READY_DROP_TICKS_REQUIRED = 4;
+static const float READY_ECHO_NEAR_CM = 12.0f;
+static const int READY_ECHO_LOST_TICKS_REQUIRED = 20;
 static const uint32_t LEDC_FREQ_HZ = 10000;  // high-frequency PWM for stable color
 static const uint8_t LEDC_RES_BITS = 8;
 static const int LEDC_CH_R = 0;
@@ -91,7 +95,12 @@ static float s_lastDistCm = -1.0f;
 /** ?λ뜆?????筌β돦?????륁궞 ???춳??筌앹빓? (loop 20ms?? ?얜떯???띿쓺 1??1??묐탣) */
 static uint32_t s_ultraSampleSeq = 0;
 static float s_readyPrevCm = -1.0f;
+static float s_readyBaselineCm = -1.0f;
+static int s_readyBaselineCount = 0;
+static float s_readyBaselineSum = 0.0f;
+static unsigned long s_readyArmedAtMs = 0;
 static int s_readyEchoLostStreak = 0;
+static int s_readyDropStreak = 0;
 /** READY 筌욊쑴??筌욊낱????살삋??s_lastDistCm??곗쨮 ?怨쀪텦??? ??낅즲嚥?筌띾뜆?筌?筌ｌ꼶?????묐탣 甕곕뜇??*/
 static uint32_t s_readyLastProcessedUltraSeq = 0;
 
@@ -120,7 +129,12 @@ void enterDefaultIdle() {
   fullDetectStartMs = 0;
   fullSent = false;
   s_readyPrevCm = -1.0f;
+  s_readyBaselineCm = -1.0f;
+  s_readyBaselineCount = 0;
+  s_readyBaselineSum = 0.0f;
+  s_readyArmedAtMs = 0;
   s_readyEchoLostStreak = 0;
+  s_readyDropStreak = 0;
 }
 
 /** HC-SR04?? ??쎈솭 ??-1, ?醫륁뒞 ??cm (????2~400) */
@@ -247,10 +261,17 @@ void armReady(const char *nick) {
   applyReadyYellowVivid();
   fullDetectStartMs = 0;
   s_readyPrevCm = -1.0f;
+  s_readyBaselineCm = -1.0f;
+  s_readyBaselineCount = 0;
+  s_readyBaselineSum = 0.0f;
+  s_readyArmedAtMs = millis();
   s_readyEchoLostStreak = 0;
+  s_readyDropStreak = 0;
   s_readyLastProcessedUltraSeq = s_ultraSampleSeq;
-  Serial.printf(">>> READY 10s, userId=%s (prev-now drop>=%.0fcm, echoLost>=%d -> CHECK)\n",
-                pendingNickname, (double)READY_DROP_CM, READY_ECHO_LOST_TICKS_REQUIRED);
+  Serial.printf(">>> READY 10s, userId=%s (baseline drop>=%.0fcm x%d after %lums settle, echoNear<%.0fcm x%d)\n",
+                pendingNickname, (double)READY_DROP_FROM_BASELINE_CM, READY_DROP_TICKS_REQUIRED,
+                (unsigned long)READY_SETTLE_MS, (double)READY_ECHO_NEAR_CM,
+                READY_ECHO_LOST_TICKS_REQUIRED);
 }
 
 void handleIncomingCmdPayload(const char *payload) {
@@ -529,33 +550,58 @@ void loop() {
   }
   s_readyLastProcessedUltraSeq = s_ultraSampleSeq;
   cm = s_lastDistCm;
+  unsigned long readyAgeMs = millis() - s_readyArmedAtMs;
+
+  if (readyAgeMs < READY_SETTLE_MS) {
+    delay(20);
+    return;
+  }
 
   if (cm >= 0) {
-    if (s_readyPrevCm < 0.0f) {
-      s_readyPrevCm = cm;
-      Serial.printf("[READY] first=%.1f cm\n", cm);
-    } else {
-      float prevCm = s_readyPrevCm;
-      float drop = prevCm - cm;  // 양수 = 가까워짐 (쓰레기 통과)
-      s_readyPrevCm = cm;
-      s_readyEchoLostStreak = 0;
+    s_readyEchoLostStreak = 0;
 
-      if (drop >= READY_DROP_CM) {
-        Serial.printf(">>> CHECK trigger prev=%.1f now=%.1f drop=%.1f\n",
-                      (double)prevCm, (double)cm, (double)drop);
+    if (s_readyBaselineCm < 0.0f) {
+      s_readyBaselineSum += cm;
+      s_readyBaselineCount++;
+      s_readyPrevCm = cm;
+      if (s_readyBaselineCount >= READY_BASELINE_SAMPLES) {
+        s_readyBaselineCm = s_readyBaselineSum / (float)s_readyBaselineCount;
+        s_readyDropStreak = 0;
+        Serial.printf("[READY] baseline=%.1f cm (avg of %d samples)\n",
+                      (double)s_readyBaselineCm, READY_BASELINE_SAMPLES);
+      } else {
+        Serial.printf("[READY] baseline sample %d/%d = %.1f cm\n",
+                      s_readyBaselineCount, READY_BASELINE_SAMPLES, (double)cm);
+      }
+    } else {
+      float dropFromBaseline = s_readyBaselineCm - cm;
+      s_readyPrevCm = cm;
+
+      if (dropFromBaseline >= READY_DROP_FROM_BASELINE_CM) {
+        s_readyDropStreak++;
+      } else {
+        s_readyDropStreak = 0;
+      }
+
+      if (s_readyDropStreak >= READY_DROP_TICKS_REQUIRED) {
+        Serial.printf(">>> CHECK trigger base=%.1f now=%.1f dropBase=%.1f streak=%d\n",
+                      (double)s_readyBaselineCm, (double)cm, (double)dropFromBaseline,
+                      s_readyDropStreak);
         publishStatusCheck();
         deviceMode = MODE_CHECK_SHOW;
-        applyRgb(false, true, false);  // GREEN
+        applyRgb(false, true, false);
         greenUntilMs = readyDeadlineMs;
         pendingNickname[0] = '\0';
         delay(20);
         return;
       }
     }
-  } else if (s_readyPrevCm >= 0.0f) {
+  } else if (s_readyBaselineCm >= 0.0f && s_readyPrevCm > 0.0f && s_readyPrevCm < READY_ECHO_NEAR_CM) {
+    // 물체가 실제로 가까이 왔을 때만 에코 소실을 CHECK 로 인정 (빈 통 노이즈 무시)
     s_readyEchoLostStreak++;
     if (s_readyEchoLostStreak >= READY_ECHO_LOST_TICKS_REQUIRED) {
-      Serial.printf(">>> CHECK trigger echo lost x%d (fast pass)\n", s_readyEchoLostStreak);
+      Serial.printf(">>> CHECK trigger echo lost x%d near last=%.1f cm\n",
+                    s_readyEchoLostStreak, (double)s_readyPrevCm);
       publishStatusCheck();
       deviceMode = MODE_CHECK_SHOW;
       applyRgb(false, true, false);  // GREEN
@@ -564,6 +610,8 @@ void loop() {
       delay(20);
       return;
     }
+  } else {
+    s_readyEchoLostStreak = 0;
   }
 
   if (millis() >= readyDeadlineMs) {
